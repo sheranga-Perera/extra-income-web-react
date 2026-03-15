@@ -18,22 +18,15 @@ export interface CompanyProfilePayload {
   website?: string | null;
 }
 
-export async function fetchProfile(role: Role, token: string) {
+export async function fetchProfile(role: Role) {
   const path = role === 'COMPANY' ? '/profiles/company/me' : '/profiles/individual/me';
-  return apiRequest(path, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  return apiRequest(path);
 }
 
-export async function saveProfile(role: Role, token: string, payload: IndividualProfilePayload | CompanyProfilePayload) {
+export async function saveProfile(role: Role, payload: IndividualProfilePayload | CompanyProfilePayload) {
   const path = role === 'COMPANY' ? '/profiles/company' : '/profiles/individual';
   return apiRequest(path, {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
     body: JSON.stringify(payload)
   });
 }

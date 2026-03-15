@@ -2,7 +2,30 @@ import { apiRequest } from './http';
 import type { IdentifierType, Role, UserSummary } from '../context/AuthContext';
 
 interface AuthResponse {
-  token: string;
+  token?: string;
+  accessToken?: string;
+  jwt?: string;
+  data?: {
+    token?: string;
+    accessToken?: string;
+    jwt?: string;
+  };
+}
+
+function extractToken(response: AuthResponse): string {
+  const token =
+    response.token ||
+    response.accessToken ||
+    response.jwt ||
+    response.data?.token ||
+    response.data?.accessToken ||
+    response.data?.jwt;
+
+  if (!token) {
+    throw new Error('Token missing in auth response');
+  }
+
+  return token;
 }
 
 export async function loginUser(username: string, password: string): Promise<string> {
@@ -10,7 +33,7 @@ export async function loginUser(username: string, password: string): Promise<str
     method: 'POST',
     body: JSON.stringify({ username, password })
   });
-  return response.token;
+  return extractToken(response);
 }
 
 export async function registerUser(payload: {
@@ -23,7 +46,7 @@ export async function registerUser(payload: {
     method: 'POST',
     body: JSON.stringify(payload)
   });
-  return response.token;
+  return extractToken(response);
 }
 
 export async function fetchCurrentUser(token: string): Promise<UserSummary> {

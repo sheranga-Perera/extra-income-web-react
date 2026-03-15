@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchCurrentUser, loginUser, registerUser } from '../api/auth';
+import { setAuthToken } from '../api/http';
 
 export type Role = 'INDIVIDUAL' | 'COMPANY' | 'ADMIN';
 export type IdentifierType = 'EMAIL' | 'PHONE';
@@ -38,18 +39,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       return;
     }
-    const data = await fetchCurrentUser(token);
-    setUser(data);
+    try {
+      const data = await fetchCurrentUser(token);
+      setUser(data);
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      setToken(null);
+      setUser(null);
+      setAuthToken(null);
+    }
   }, [token]);
 
   useEffect(() => {
     refresh().catch(() => setUser(null));
   }, [refresh]);
 
+  useEffect(() => {
+    setAuthToken(token);
+  }, [token]);
+
   const login = useCallback(async (username: string, password: string) => {
     const newToken = await loginUser(username, password);
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);
+    setAuthToken(newToken);
   }, []);
 
   const register = useCallback(async (payload: {
@@ -61,12 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newToken = await registerUser(payload);
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);
+    setAuthToken(newToken);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
     setToken(null);
     setUser(null);
+    setAuthToken(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({

@@ -63,7 +63,7 @@ export default function Profile() {
         return;
       }
       try {
-        const data = await fetchProfile(role, token);
+        const data = await fetchProfile(role);
         if (role === 'COMPANY') {
           setCompany({
             companyName: data.companyName ?? '',
@@ -158,7 +158,7 @@ export default function Profile() {
     setNotice(null);
     try {
       const payload = role === 'COMPANY' ? company : individual;
-      await saveProfile(role, token, payload);
+      await saveProfile(role, payload);
       setNotice(t('successSaved'));
     } catch (err) {
       setError((err as Error).message);
