@@ -15,16 +15,59 @@ export default function Register() {
     identifierType: 'EMAIL' as IdentifierType
   });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isValidEmail = (value: string) => /^(?!\s*$)[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  const isValidPhone = (value: string) => /^\+?[0-9]{7,15}$/.test(value);
+
+  const validate = () => {
+    const errors: Record<string, string> = {};
+    if (!form.username.trim()) {
+      errors.username = 'Username is required.';
+    } else if (form.identifierType === 'EMAIL' && !isValidEmail(form.username.trim())) {
+      errors.username = 'Enter a valid email address.';
+    } else if (form.identifierType === 'PHONE' && !isValidPhone(form.username.trim())) {
+      errors.username = 'Enter a valid phone number.';
+    }
+
+    if (!form.password) {
+      errors.password = 'Password is required.';
+    } else if (form.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters.';
+    }
+
+    return errors;
+  };
+
+  const clearError = (key: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    const validation = validate();
+    if (Object.keys(validation).length > 0) {
+      setFieldErrors(validation);
+      return;
+    }
+    setIsSubmitting(true);
     try {
       await register(form);
       await refresh();
       navigate('/profile');
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -32,14 +75,19 @@ export default function Register() {
     <div className="container">
       <form className="form" onSubmit={handleSubmit}>
         <h2>{t('register')}</h2>
-        {error && <div className="notice">{error}</div>}
+        {error && <div className="notice notice--error">{error}</div>}
         <div className="field">
           <label htmlFor="username">{t('username')}</label>
           <input
             id="username"
             value={form.username}
-            onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+            onChange={(e) => {
+              setForm((prev) => ({ ...prev, username: e.target.value }));
+              clearError('username');
+            }}
+            className={fieldErrors.username ? 'input--error' : undefined}
           />
+          {fieldErrors.username && <span className="field__error">{fieldErrors.username}</span>}
         </div>
         <div className="field">
           <label htmlFor="password">{t('password')}</label>
@@ -47,15 +95,23 @@ export default function Register() {
             id="password"
             type="password"
             value={form.password}
-            onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+            onChange={(e) => {
+              setForm((prev) => ({ ...prev, password: e.target.value }));
+              clearError('password');
+            }}
+            className={fieldErrors.password ? 'input--error' : undefined}
           />
+          {fieldErrors.password && <span className="field__error">{fieldErrors.password}</span>}
         </div>
         <div className="field">
           <label htmlFor="identifier">{t('identifier')}</label>
           <select
             id="identifier"
             value={form.identifierType}
-            onChange={(e) => setForm((prev) => ({ ...prev, identifierType: e.target.value as IdentifierType }))}
+            onChange={(e) => {
+              setForm((prev) => ({ ...prev, identifierType: e.target.value as IdentifierType }));
+              clearError('username');
+            }}
           >
             <option value="EMAIL">Email</option>
             <option value="PHONE">Phone</option>
@@ -72,7 +128,7 @@ export default function Register() {
             <option value="COMPANY">{t('company')}</option>
           </select>
         </div>
-        <button className="button" type="submit">{t('register')}</button>
+        <button className="button" type="submit" disabled={isSubmitting}>{t('register')}</button>
       </form>
     </div>
   );

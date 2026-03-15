@@ -111,11 +111,26 @@ a {
   font-size: 1rem;
 }
 
+.input--error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);
+}
+
+.field__error {
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+
 .notice {
   padding: 0.75rem 1rem;
   background: #dbeafe;
   border-radius: 0.75rem;
   color: #1e3a8a;
+}
+
+.notice--error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .footer {
