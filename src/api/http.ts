@@ -29,7 +29,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  if (authToken && !hasAuthorizationHeader(options.headers)) {
+  if (authToken && !hasAuthorizationHeader(options.headers) && !path.startsWith('/auth/')) {
     headers.set('Authorization', `Bearer ${authToken}`);
   }
   const response = await fetch(`${BASE_URL}${path}`, {

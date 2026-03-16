@@ -25,6 +25,13 @@ export default function NavBar() {
           </>
         ) : (
           <>
+            <Link to="/jobs">Jobs</Link>
+            {(user.role === 'COMPANY' || user.role === 'ADMIN') && (
+              <>
+                <Link to="/hire">Hire</Link>
+                <Link to="/advertise">Advertise</Link>
+              </>
+            )}
             <Link to="/profile">{t('profile')}</Link>
             <button className="button" type="button" onClick={logout}>
               {t('logout')}
