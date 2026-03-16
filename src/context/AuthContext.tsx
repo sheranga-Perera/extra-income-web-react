@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { fetchCurrentUser, loginUser, registerUser } from '../api/auth';
+import { fetchCurrentUser, loginUser, registerUser, type RegisterPayload } from '../api/auth';
 import { setAuthToken } from '../api/http';
 
 export type Role = 'INDIVIDUAL' | 'COMPANY' | 'ADMIN';
@@ -16,12 +16,7 @@ interface AuthContextValue {
   user: UserSummary | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (payload: {
-    username: string;
-    password: string;
-    role: Role;
-    identifierType: IdentifierType;
-  }) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   refresh: () => Promise<void>;
   logout: () => void;
 }
@@ -65,12 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthToken(newToken);
   }, []);
 
-  const register = useCallback(async (payload: {
-    username: string;
-    password: string;
-    role: Role;
-    identifierType: IdentifierType;
-  }) => {
+  const register = useCallback(async (payload: RegisterPayload) => {
     const newToken = await registerUser(payload);
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);

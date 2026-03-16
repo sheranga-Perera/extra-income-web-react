@@ -4,11 +4,39 @@ import { fetchProfile, saveProfile } from '../api/profile';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 
+const COUNTRY_CODE = '+94';
+
+const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+  reader.readAsDataURL(file);
+});
+
+const parseSkills = (value: string) => value
+  .split(',')
+  .map((skill) => skill.trim())
+  .filter((skill) => skill.length > 0);
+
 interface IndividualState {
   fullName: string;
   phone: string;
   location: string;
   bio: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  email: string;
+  address: string;
+  nicFront: string;
+  nicBack: string;
+  hasDriversLicense: boolean;
+  driversLicenseType: string;
+  profession: string;
+  preferredCategories: string;
+  preferredSectors: string;
+  skills: string[];
 }
 
 interface CompanyState {
@@ -19,6 +47,9 @@ interface CompanyState {
   phone: string;
   address: string;
   website: string;
+  bio: string;
+  sector: string;
+  legalDocs: string[];
 }
 
 export default function Profile() {
@@ -34,7 +65,21 @@ export default function Profile() {
     fullName: '',
     phone: '',
     location: '',
-    bio: ''
+    bio: '',
+    firstName: '',
+    lastName: '',
+    dob: '',
+    gender: '',
+    email: '',
+    address: '',
+    nicFront: '',
+    nicBack: '',
+    hasDriversLicense: false,
+    driversLicenseType: '',
+    profession: '',
+    preferredCategories: '',
+    preferredSectors: '',
+    skills: []
   });
 
   const [company, setCompany] = useState<CompanyState>({
@@ -44,13 +89,20 @@ export default function Profile() {
     contactEmail: '',
     phone: '',
     address: '',
-    website: ''
+    website: '',
+    bio: '',
+    sector: '',
+    legalDocs: []
   });
+  const [individualNicFrontFile, setIndividualNicFrontFile] = useState<File | null>(null);
+  const [individualNicBackFile, setIndividualNicBackFile] = useState<File | null>(null);
+  const [companyLegalDocFiles, setCompanyLegalDocFiles] = useState<File[]>([]);
+  const [skillDraft, setSkillDraft] = useState('');
 
   const role = user?.role;
 
   const isValidEmail = (value: string) => /^(?!\s*$)[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  const isValidPhone = (value: string) => /^\+?[0-9]{7,15}$/.test(value);
+  const isValidPhone = (value: string) => new RegExp(`^\\${COUNTRY_CODE}[0-9]{9}$`).test(value);
   const isValidUrl = (value: string) => {
     if (!value) {
       return true;
@@ -61,6 +113,19 @@ export default function Profile() {
     } catch {
       return false;
     }
+  };
+
+  const getLocalPhone = (value: string) => {
+    if (!value) {
+      return '';
+    }
+    return value.startsWith(COUNTRY_CODE) ? value.slice(COUNTRY_CODE.length) : value.replace(/\D/g, '');
+  };
+
+  const toFullPhone = (local: string) => {
+    const digits = local.replace(/\D/g, '');
+    const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+    return normalized ? `${COUNTRY_CODE}${normalized}` : '';
   };
 
   const clearError = (key: string) => {
@@ -108,6 +173,9 @@ export default function Profile() {
     if (!individual.fullName.trim()) {
       errors.fullName = 'Full name is required.';
     }
+    if (individual.email.trim() && !isValidEmail(individual.email.trim())) {
+      errors.email = 'Enter a valid email address.';
+    }
     if (!individual.phone.trim()) {
       errors.phone = 'Phone number is required.';
     } else if (!isValidPhone(individual.phone.trim())) {
@@ -146,14 +214,31 @@ export default function Profile() {
             contactEmail: data.contactEmail ?? '',
             phone: data.phone ?? '',
             address: data.address ?? '',
-            website: data.website ?? ''
+            website: data.website ?? '',
+            bio: data.bio ?? '',
+            sector: data.sector ?? '',
+            legalDocs: data.legalDocs ?? []
           });
         } else {
           setIndividual({
             fullName: data.fullName ?? '',
             phone: data.phone ?? '',
             location: data.location ?? '',
-            bio: data.bio ?? ''
+            bio: data.bio ?? '',
+            firstName: data.firstName ?? '',
+            lastName: data.lastName ?? '',
+            dob: data.dob ?? '',
+            gender: data.gender ?? '',
+            email: data.email ?? '',
+            address: data.address ?? '',
+            nicFront: data.nicFront ?? '',
+            nicBack: data.nicBack ?? '',
+            hasDriversLicense: data.hasDriversLicense ?? false,
+            driversLicenseType: data.driversLicenseType ?? '',
+            profession: data.profession ?? '',
+            preferredCategories: data.preferredCategories ?? '',
+            preferredSectors: data.preferredSectors ?? '',
+            skills: data.skills ? parseSkills(data.skills) : []
           });
         }
       } catch (err) {
@@ -219,14 +304,21 @@ export default function Profile() {
           </div>
           <div className="field">
             <label>{t('phone')}</label>
-            <input
-              value={company.phone}
-              onChange={(e) => {
-                setCompany((prev) => ({ ...prev, phone: e.target.value }));
-                clearError('phone');
-              }}
-              className={fieldErrors.phone ? 'input--error' : undefined}
-            />
+            <div className="phone-input">
+              <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+                <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+              </select>
+              <input
+                placeholder="7x xxx xxxx"
+                inputMode="numeric"
+                value={getLocalPhone(company.phone)}
+                onChange={(e) => {
+                  setCompany((prev) => ({ ...prev, phone: toFullPhone(e.target.value) }));
+                  clearError('phone');
+                }}
+                className={fieldErrors.phone ? 'input--error' : undefined}
+              />
+            </div>
             {fieldErrors.phone && <span className="field__error">{fieldErrors.phone}</span>}
           </div>
           <div className="field">
@@ -253,6 +345,35 @@ export default function Profile() {
             />
             {fieldErrors.website && <span className="field__error">{fieldErrors.website}</span>}
           </div>
+          <div className="field">
+            <label>Company bio</label>
+            <textarea
+              value={company.bio}
+              onChange={(e) => setCompany((prev) => ({ ...prev, bio: e.target.value }))}
+            />
+          </div>
+          <div className="field">
+            <label>Company sector</label>
+            <input
+              value={company.sector}
+              onChange={(e) => setCompany((prev) => ({ ...prev, sector: e.target.value }))}
+            />
+          </div>
+          <div className="field">
+            <label>Legal documents</label>
+            <input
+              value={company.legalDocs.length > 0 ? `${company.legalDocs.length} document(s) uploaded` : 'Not uploaded'}
+              disabled
+            />
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                setCompanyLegalDocFiles(files);
+              }}
+            />
+          </div>
         </>
       );
     }
@@ -272,17 +393,129 @@ export default function Profile() {
           {fieldErrors.fullName && <span className="field__error">{fieldErrors.fullName}</span>}
         </div>
         <div className="field">
-          <label>{t('phone')}</label>
+          <label>First name</label>
           <input
-            value={individual.phone}
-            onChange={(e) => {
-              setIndividual((prev) => ({ ...prev, phone: e.target.value }));
-              clearError('phone');
-            }}
-            className={fieldErrors.phone ? 'input--error' : undefined}
+            value={individual.firstName}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, firstName: e.target.value }))}
           />
+        </div>
+        <div className="field">
+          <label>Last name</label>
+          <input
+            value={individual.lastName}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, lastName: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Date of birth</label>
+          <input
+            type="date"
+            value={individual.dob}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, dob: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Gender</label>
+          <select
+            value={individual.gender}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, gender: e.target.value }))}
+          >
+            <option value="">Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Email</label>
+          <input
+            value={individual.email}
+            onChange={(e) => {
+              setIndividual((prev) => ({ ...prev, email: e.target.value }));
+              clearError('email');
+            }}
+            className={fieldErrors.email ? 'input--error' : undefined}
+          />
+          {fieldErrors.email && <span className="field__error">{fieldErrors.email}</span>}
+        </div>
+        <div className="field">
+          <label>{t('phone')}</label>
+          <div className="phone-input">
+            <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+              <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+            </select>
+            <input
+              placeholder="7x xxx xxxx"
+              inputMode="numeric"
+              value={getLocalPhone(individual.phone)}
+              onChange={(e) => {
+                setIndividual((prev) => ({ ...prev, phone: toFullPhone(e.target.value) }));
+                clearError('phone');
+              }}
+              className={fieldErrors.phone ? 'input--error' : undefined}
+            />
+          </div>
           {fieldErrors.phone && <span className="field__error">{fieldErrors.phone}</span>}
         </div>
+        <div className="field">
+          <label>Address</label>
+          <input
+            value={individual.address}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, address: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>NIC front</label>
+          <input value={individual.nicFront ? 'Uploaded' : 'Not uploaded'} disabled />
+          <input
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setIndividualNicFrontFile(file);
+            }}
+          />
+        </div>
+        <div className="field">
+          <label>NIC back</label>
+          <input value={individual.nicBack ? 'Uploaded' : 'Not uploaded'} disabled />
+          <input
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setIndividualNicBackFile(file);
+            }}
+          />
+        </div>
+        <div className="field">
+          <label>
+            <input
+              type="checkbox"
+              checked={individual.hasDriversLicense}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIndividual((prev) => ({
+                  ...prev,
+                  hasDriversLicense: checked,
+                  driversLicenseType: checked ? prev.driversLicenseType : ''
+                }));
+              }}
+            />{' '}
+            Has valid driver’s license
+          </label>
+        </div>
+        {individual.hasDriversLicense && (
+          <div className="field">
+            <label>License type</label>
+            <select
+              value={individual.driversLicenseType}
+              onChange={(e) => setIndividual((prev) => ({ ...prev, driversLicenseType: e.target.value }))}
+            >
+              <option value="">Select</option>
+              <option value="LIGHT">Light vehicle</option>
+              <option value="HEAVY">Heavy vehicle</option>
+            </select>
+          </div>
+        )}
         <div className="field">
           <label>{t('location')}</label>
           <input
@@ -294,6 +527,94 @@ export default function Profile() {
             className={fieldErrors.location ? 'input--error' : undefined}
           />
           {fieldErrors.location && <span className="field__error">{fieldErrors.location}</span>}
+        </div>
+        <div className="field">
+          <label>Profession</label>
+          <input
+            value={individual.profession}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, profession: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Preferred categories</label>
+          <input
+            value={individual.preferredCategories}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, preferredCategories: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Preferred sectors</label>
+          <input
+            value={individual.preferredSectors}
+            onChange={(e) => setIndividual((prev) => ({ ...prev, preferredSectors: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Skills</label>
+          <div className="skill-input">
+            <input
+              placeholder="Add a skill and press Enter"
+              value={skillDraft}
+              onChange={(e) => setSkillDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') {
+                  return;
+                }
+                e.preventDefault();
+                const cleaned = skillDraft.trim();
+                if (!cleaned) {
+                  return;
+                }
+                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                if (exists) {
+                  setSkillDraft('');
+                  return;
+                }
+                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                setSkillDraft('');
+              }}
+            />
+            <button
+              className="button button--ghost"
+              type="button"
+              onClick={() => {
+                const cleaned = skillDraft.trim();
+                if (!cleaned) {
+                  return;
+                }
+                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                if (exists) {
+                  setSkillDraft('');
+                  return;
+                }
+                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                setSkillDraft('');
+              }}
+            >
+              Add
+            </button>
+          </div>
+          {individual.skills.length > 0 && (
+            <div className="skill-list">
+              {individual.skills.map((skill) => (
+                <span key={skill} className="skill-chip">
+                  {skill}
+                  <button
+                    type="button"
+                    aria-label={`Remove ${skill}`}
+                    onClick={() => {
+                      setIndividual((prev) => ({
+                        ...prev,
+                        skills: prev.skills.filter((item) => item !== skill)
+                      }));
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="field">
           <label>{t('bio')}</label>
@@ -324,8 +645,30 @@ export default function Profile() {
       return;
     }
     try {
-      const payload = role === 'COMPANY' ? company : individual;
-      await saveProfile(role, payload);
+      if (role === 'COMPANY') {
+        const legalDocs = companyLegalDocFiles.length > 0
+          ? await Promise.all(companyLegalDocFiles.map(readFileAsDataUrl))
+          : company.legalDocs;
+
+        await saveProfile(role, {
+          ...company,
+          legalDocs
+        });
+      } else {
+        const nicFront = individualNicFrontFile
+          ? await readFileAsDataUrl(individualNicFrontFile)
+          : individual.nicFront;
+        const nicBack = individualNicBackFile
+          ? await readFileAsDataUrl(individualNicBackFile)
+          : individual.nicBack;
+
+        await saveProfile(role, {
+          ...individual,
+          nicFront,
+          nicBack,
+          skills: individual.skills.join(', ')
+        });
+      }
       setNotice(t('successSaved'));
     } catch (err) {
       setError((err as Error).message);

@@ -6,6 +6,20 @@ export interface IndividualProfilePayload {
   phone: string;
   location: string;
   bio?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  email?: string | null;
+  address?: string | null;
+  nicFront?: string | null;
+  nicBack?: string | null;
+  hasDriversLicense?: boolean | null;
+  driversLicenseType?: string | null;
+  profession?: string | null;
+  preferredCategories?: string | null;
+  preferredSectors?: string | null;
+  skills?: string | null;
 }
 
 export interface CompanyProfilePayload {
@@ -16,6 +30,9 @@ export interface CompanyProfilePayload {
   phone: string;
   address: string;
   website?: string | null;
+  bio?: string | null;
+  sector?: string | null;
+  legalDocs?: string[] | null;
 }
 
 export async function fetchProfile(role: Role) {
