@@ -4,6 +4,20 @@ import { fetchProfile, saveProfile } from '../api/profile';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 
+const COUNTRY_CODE = '+94';
+
+const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+  reader.readAsDataURL(file);
+});
+
+const parseSkills = (value: string) => value
+  .split(',')
+  .map((skill) => skill.trim())
+  .filter((skill) => skill.length > 0);
+
 interface IndividualState {
   fullName: string;
   phone: string;
@@ -22,7 +36,7 @@ interface IndividualState {
   profession: string;
   preferredCategories: string;
   preferredSectors: string;
-  skills: string;
+  skills: string[];
 }
 
 interface CompanyState {
@@ -65,7 +79,7 @@ export default function Profile() {
     profession: '',
     preferredCategories: '',
     preferredSectors: '',
-    skills: ''
+    skills: []
   });
 
   const [company, setCompany] = useState<CompanyState>({
@@ -80,11 +94,15 @@ export default function Profile() {
     sector: '',
     legalDocs: []
   });
+  const [individualNicFrontFile, setIndividualNicFrontFile] = useState<File | null>(null);
+  const [individualNicBackFile, setIndividualNicBackFile] = useState<File | null>(null);
+  const [companyLegalDocFiles, setCompanyLegalDocFiles] = useState<File[]>([]);
+  const [skillDraft, setSkillDraft] = useState('');
 
   const role = user?.role;
 
   const isValidEmail = (value: string) => /^(?!\s*$)[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  const isValidPhone = (value: string) => /^\+?[0-9]{7,15}$/.test(value);
+  const isValidPhone = (value: string) => new RegExp(`^\\${COUNTRY_CODE}[0-9]{9}$`).test(value);
   const isValidUrl = (value: string) => {
     if (!value) {
       return true;
@@ -95,6 +113,19 @@ export default function Profile() {
     } catch {
       return false;
     }
+  };
+
+  const getLocalPhone = (value: string) => {
+    if (!value) {
+      return '';
+    }
+    return value.startsWith(COUNTRY_CODE) ? value.slice(COUNTRY_CODE.length) : value.replace(/\D/g, '');
+  };
+
+  const toFullPhone = (local: string) => {
+    const digits = local.replace(/\D/g, '');
+    const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+    return normalized ? `${COUNTRY_CODE}${normalized}` : '';
   };
 
   const clearError = (key: string) => {
@@ -207,7 +238,7 @@ export default function Profile() {
             profession: data.profession ?? '',
             preferredCategories: data.preferredCategories ?? '',
             preferredSectors: data.preferredSectors ?? '',
-            skills: data.skills ?? ''
+            skills: data.skills ? parseSkills(data.skills) : []
           });
         }
       } catch (err) {
@@ -273,14 +304,21 @@ export default function Profile() {
           </div>
           <div className="field">
             <label>{t('phone')}</label>
-            <input
-              value={company.phone}
-              onChange={(e) => {
-                setCompany((prev) => ({ ...prev, phone: e.target.value }));
-                clearError('phone');
-              }}
-              className={fieldErrors.phone ? 'input--error' : undefined}
-            />
+            <div className="phone-input">
+              <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+                <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+              </select>
+              <input
+                placeholder="7x xxx xxxx"
+                inputMode="numeric"
+                value={getLocalPhone(company.phone)}
+                onChange={(e) => {
+                  setCompany((prev) => ({ ...prev, phone: toFullPhone(e.target.value) }));
+                  clearError('phone');
+                }}
+                className={fieldErrors.phone ? 'input--error' : undefined}
+              />
+            </div>
             {fieldErrors.phone && <span className="field__error">{fieldErrors.phone}</span>}
           </div>
           <div className="field">
@@ -326,6 +364,14 @@ export default function Profile() {
             <input
               value={company.legalDocs.length > 0 ? `${company.legalDocs.length} document(s) uploaded` : 'Not uploaded'}
               disabled
+            />
+            <input
+              type="file"
+              multiple
+              onChange={(e) => {
+                const files = e.target.files ? Array.from(e.target.files) : [];
+                setCompanyLegalDocFiles(files);
+              }}
             />
           </div>
         </>
@@ -394,14 +440,21 @@ export default function Profile() {
         </div>
         <div className="field">
           <label>{t('phone')}</label>
-          <input
-            value={individual.phone}
-            onChange={(e) => {
-              setIndividual((prev) => ({ ...prev, phone: e.target.value }));
-              clearError('phone');
-            }}
-            className={fieldErrors.phone ? 'input--error' : undefined}
-          />
+          <div className="phone-input">
+            <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+              <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+            </select>
+            <input
+              placeholder="7x xxx xxxx"
+              inputMode="numeric"
+              value={getLocalPhone(individual.phone)}
+              onChange={(e) => {
+                setIndividual((prev) => ({ ...prev, phone: toFullPhone(e.target.value) }));
+                clearError('phone');
+              }}
+              className={fieldErrors.phone ? 'input--error' : undefined}
+            />
+          </div>
           {fieldErrors.phone && <span className="field__error">{fieldErrors.phone}</span>}
         </div>
         <div className="field">
@@ -414,10 +467,24 @@ export default function Profile() {
         <div className="field">
           <label>NIC front</label>
           <input value={individual.nicFront ? 'Uploaded' : 'Not uploaded'} disabled />
+          <input
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setIndividualNicFrontFile(file);
+            }}
+          />
         </div>
         <div className="field">
           <label>NIC back</label>
           <input value={individual.nicBack ? 'Uploaded' : 'Not uploaded'} disabled />
+          <input
+            type="file"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              setIndividualNicBackFile(file);
+            }}
+          />
         </div>
         <div className="field">
           <label>
@@ -484,10 +551,70 @@ export default function Profile() {
         </div>
         <div className="field">
           <label>Skills</label>
-          <textarea
-            value={individual.skills}
-            onChange={(e) => setIndividual((prev) => ({ ...prev, skills: e.target.value }))}
-          />
+          <div className="skill-input">
+            <input
+              placeholder="Add a skill and press Enter"
+              value={skillDraft}
+              onChange={(e) => setSkillDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') {
+                  return;
+                }
+                e.preventDefault();
+                const cleaned = skillDraft.trim();
+                if (!cleaned) {
+                  return;
+                }
+                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                if (exists) {
+                  setSkillDraft('');
+                  return;
+                }
+                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                setSkillDraft('');
+              }}
+            />
+            <button
+              className="button button--ghost"
+              type="button"
+              onClick={() => {
+                const cleaned = skillDraft.trim();
+                if (!cleaned) {
+                  return;
+                }
+                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                if (exists) {
+                  setSkillDraft('');
+                  return;
+                }
+                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                setSkillDraft('');
+              }}
+            >
+              Add
+            </button>
+          </div>
+          {individual.skills.length > 0 && (
+            <div className="skill-list">
+              {individual.skills.map((skill) => (
+                <span key={skill} className="skill-chip">
+                  {skill}
+                  <button
+                    type="button"
+                    aria-label={`Remove ${skill}`}
+                    onClick={() => {
+                      setIndividual((prev) => ({
+                        ...prev,
+                        skills: prev.skills.filter((item) => item !== skill)
+                      }));
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="field">
           <label>{t('bio')}</label>
@@ -518,8 +645,30 @@ export default function Profile() {
       return;
     }
     try {
-      const payload = role === 'COMPANY' ? company : individual;
-      await saveProfile(role, payload);
+      if (role === 'COMPANY') {
+        const legalDocs = companyLegalDocFiles.length > 0
+          ? await Promise.all(companyLegalDocFiles.map(readFileAsDataUrl))
+          : company.legalDocs;
+
+        await saveProfile(role, {
+          ...company,
+          legalDocs
+        });
+      } else {
+        const nicFront = individualNicFrontFile
+          ? await readFileAsDataUrl(individualNicFrontFile)
+          : individual.nicFront;
+        const nicBack = individualNicBackFile
+          ? await readFileAsDataUrl(individualNicBackFile)
+          : individual.nicBack;
+
+        await saveProfile(role, {
+          ...individual,
+          nicFront,
+          nicBack,
+          skills: individual.skills.join(', ')
+        });
+      }
       setNotice(t('successSaved'));
     } catch (err) {
       setError((err as Error).message);
