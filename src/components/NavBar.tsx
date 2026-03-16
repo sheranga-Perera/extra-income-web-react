@@ -21,7 +21,7 @@ export default function NavBar() {
         {!user ? (
           <>
             <Link to="/login">{t('login')}</Link>
-            <Link to="/register" className="button button--ghost">{t('register')}</Link>
+            <Link to="/" className="button button--ghost">{t('register')}</Link>
           </>
         ) : (
           <>

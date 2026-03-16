@@ -36,12 +36,37 @@ export async function loginUser(username: string, password: string): Promise<str
   return extractToken(response);
 }
 
-export async function registerUser(payload: {
+export interface RegisterPayload {
   username: string;
   password: string;
+  confirmPassword: string;
   role: Role;
   identifierType: IdentifierType;
-}): Promise<string> {
+  firstName?: string;
+  lastName?: string;
+  dob?: string;
+  gender?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  nicFront?: string;
+  nicBack?: string;
+  hasDriversLicense?: boolean;
+  driversLicenseType?: string;
+  profession?: string;
+  preferredCategories?: string;
+  preferredSectors?: string;
+  skills?: string;
+  companyName?: string;
+  contactPerson?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  bio?: string;
+  sector?: string;
+  legalDocs?: string[];
+}
+
+export async function registerUser(payload: RegisterPayload): Promise<string> {
   const response = await apiRequest<AuthResponse>('/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload)

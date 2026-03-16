@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, IdentifierType, Role } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 
@@ -7,15 +7,33 @@ type RegisterRole = 'INDIVIDUAL' | 'COMPANY';
 
 type FieldErrors = Record<string, string>;
 
+const COUNTRY_CODE = '+94';
+
+const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+  reader.readAsDataURL(file);
+});
+
+const getRoleFromLocation = (state: unknown, search: string): RegisterRole => {
+  const stateRole = (state as { role?: RegisterRole } | null)?.role;
+  const queryRole = new URLSearchParams(search).get('role');
+  const normalized = (stateRole ?? queryRole ?? 'INDIVIDUAL').toString().toUpperCase();
+  return normalized === 'COMPANY' ? 'COMPANY' : 'INDIVIDUAL';
+};
+
 export default function Register() {
   const { register } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [role, setRole] = useState<RegisterRole>('INDIVIDUAL');
+  const [role, setRole] = useState<RegisterRole>(() => getRoleFromLocation(location.state, location.search));
   const [step, setStep] = useState(0);
   const [account, setAccount] = useState({
     password: '',
+    confirmPassword: '',
     identifierType: 'EMAIL' as IdentifierType
   });
   const [individual, setIndividual] = useState({
@@ -33,7 +51,7 @@ export default function Register() {
     profession: '',
     preferredCategories: '',
     preferredSectors: '',
-    skills: ''
+    skills: [] as string[]
   });
   const [company, setCompany] = useState({
     companyName: '',
@@ -48,9 +66,50 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [skillDraft, setSkillDraft] = useState('');
+
+  useEffect(() => {
+    const nextRole = getRoleFromLocation(location.state, location.search);
+    if (nextRole !== role) {
+      setRole(nextRole);
+      setStep(0);
+      setFieldErrors({});
+    }
+  }, [location.search, location.state, role]);
 
   const isValidEmail = (value: string) => /^(?!\s*$)[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  const isValidPhone = (value: string) => /^\+?[0-9]{7,15}$/.test(value);
+  const isValidPhone = (value: string) => new RegExp(`^\\${COUNTRY_CODE}[0-9]{9}$`).test(value);
+
+  const getLocalPhone = (value: string) => {
+    if (!value) {
+      return '';
+    }
+    return value.startsWith(COUNTRY_CODE) ? value.slice(COUNTRY_CODE.length) : value.replace(/\D/g, '');
+  };
+
+  const toFullPhone = (local: string) => {
+    const digits = local.replace(/\D/g, '');
+    const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+    return normalized ? `${COUNTRY_CODE}${normalized}` : '';
+  };
+
+  const isAdult = (dob: string) => {
+    if (!dob) {
+      return false;
+    }
+    const birthDate = new Date(dob);
+    if (Number.isNaN(birthDate.getTime())) {
+      return false;
+    }
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age -= 1;
+    }
+    return age >= 18;
+  };
 
   const steps = useMemo(() => {
     if (role === 'INDIVIDUAL') {
@@ -77,6 +136,11 @@ export default function Register() {
     } else if (account.password.length < 6) {
       errors.password = 'Password must be at least 6 characters.';
     }
+    if (!account.confirmPassword) {
+      errors.confirmPassword = 'Confirm password is required.';
+    } else if (account.confirmPassword !== account.password) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
     return errors;
   };
 
@@ -90,6 +154,8 @@ export default function Register() {
     }
     if (!individual.dob) {
       errors.dob = 'Date of birth is required.';
+    } else if (!isAdult(individual.dob)) {
+      errors.dob = 'You must be at least 18 years old.';
     }
     if (!individual.gender.trim()) {
       errors.gender = 'Gender is required.';
@@ -124,8 +190,8 @@ export default function Register() {
     if (!individual.preferredCategories.trim()) {
       errors.preferredCategories = 'Preferred categories are required.';
     }
-    if (!individual.skills.trim()) {
-      errors.skills = 'Skills are required.';
+    if (individual.skills.length === 0) {
+      errors.skills = 'At least one skill is required.';
     }
     return errors;
   };
@@ -187,11 +253,13 @@ export default function Register() {
     }
     setFieldErrors({});
     setStep((prev) => Math.min(prev + 1, steps.length - 1));
+    setIsConfirmed(false);
   };
 
   const previousStep = () => {
     setFieldErrors({});
     setStep((prev) => Math.max(prev - 1, 0));
+    setIsConfirmed(false);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -206,6 +274,10 @@ export default function Register() {
       nextStep();
       return;
     }
+    if (!isConfirmed) {
+      setFieldErrors((prev) => ({ ...prev, confirm: 'Please confirm the details before submitting.' }));
+      return;
+    }
     setIsSubmitting(true);
     try {
       const username =
@@ -213,11 +285,57 @@ export default function Register() {
           ? (account.identifierType === 'EMAIL' ? individual.email : individual.phone)
           : (account.identifierType === 'EMAIL' ? company.contactEmail : company.contactPhone);
 
+      let nicFrontData: string | null = null;
+      let nicBackData: string | null = null;
+      let legalDocsData: string[] = [];
+
+      if (role === 'INDIVIDUAL') {
+        if (individual.nicFrontFile) {
+          nicFrontData = await readFileAsDataUrl(individual.nicFrontFile);
+        }
+        if (individual.nicBackFile) {
+          nicBackData = await readFileAsDataUrl(individual.nicBackFile);
+        }
+      }
+
+      if (role === 'COMPANY' && company.legalDocs.length > 0) {
+        legalDocsData = await Promise.all(company.legalDocs.map(readFileAsDataUrl));
+      }
+
       await register({
         username,
         password: account.password,
+        confirmPassword: account.confirmPassword,
         role: role as Role,
-        identifierType: account.identifierType
+        identifierType: account.identifierType,
+            ...(role === 'INDIVIDUAL'
+              ? {
+                  firstName: individual.firstName.trim(),
+                  lastName: individual.lastName.trim(),
+                  dob: individual.dob,
+                  gender: individual.gender,
+                  email: individual.email.trim(),
+                  phone: individual.phone.trim(),
+                  address: individual.address.trim(),
+                  nicFront: nicFrontData ?? '',
+                  nicBack: nicBackData ?? '',
+                  hasDriversLicense: individual.hasDriversLicense,
+                  driversLicenseType: individual.driversLicenseType.trim(),
+                  profession: individual.profession.trim(),
+                  preferredCategories: individual.preferredCategories.trim(),
+                  preferredSectors: individual.preferredSectors.trim(),
+                  skills: individual.skills.join(', ')
+                }
+          : {
+              companyName: company.companyName.trim(),
+              address: company.address.trim(),
+              contactPerson: company.contactPerson.trim(),
+              contactEmail: company.contactEmail.trim(),
+              contactPhone: company.contactPhone.trim(),
+              bio: company.bio.trim(),
+              sector: company.sector.trim(),
+              legalDocs: legalDocsData
+            })
       });
       navigate('/profile');
     } catch (err) {
@@ -242,22 +360,6 @@ export default function Register() {
               {index + 1}. {label}
             </span>
           ))}
-        </div>
-
-        <div className="field">
-          <label htmlFor="role">{t('role')}</label>
-          <select
-            id="role"
-            value={role}
-            onChange={(e) => {
-              setRole(e.target.value as RegisterRole);
-              setStep(0);
-              setFieldErrors({});
-            }}
-          >
-            <option value="INDIVIDUAL">{t('individual')}</option>
-            <option value="COMPANY">{t('company')}</option>
-          </select>
         </div>
 
         {step === 0 && role === 'INDIVIDUAL' && (
@@ -301,7 +403,7 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Gender</label>
-              <div>
+              <div className="field__options">
                 <label>
                   <input
                     type="radio"
@@ -358,14 +460,21 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Phone</label>
-              <input
-                value={individual.phone}
-                onChange={(e) => {
-                  setIndividual((prev) => ({ ...prev, phone: e.target.value }));
-                  clearError('phone');
-                }}
-                className={fieldErrors.phone ? 'input--error' : undefined}
-              />
+              <div className="phone-input">
+                <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+                  <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+                </select>
+                <input
+                  placeholder="7x xxx xxxx"
+                  inputMode="numeric"
+                  value={getLocalPhone(individual.phone)}
+                  onChange={(e) => {
+                    setIndividual((prev) => ({ ...prev, phone: toFullPhone(e.target.value) }));
+                    clearError('phone');
+                  }}
+                  className={fieldErrors.phone ? 'input--error' : undefined}
+                />
+              </div>
               {fieldErrors.phone && <span className="field__error">{fieldErrors.phone}</span>}
             </div>
             <div className="field">
@@ -463,6 +572,21 @@ export default function Register() {
               />
               {fieldErrors.password && <span className="field__error">{fieldErrors.password}</span>}
             </div>
+            <div className="field">
+              <label>Confirm password</label>
+              <input
+                type="password"
+                value={account.confirmPassword}
+                onChange={(e) => {
+                  setAccount((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                  clearError('confirmPassword');
+                }}
+                className={fieldErrors.confirmPassword ? 'input--error' : undefined}
+              />
+              {fieldErrors.confirmPassword && (
+                <span className="field__error">{fieldErrors.confirmPassword}</span>
+              )}
+            </div>
           </>
         )}
 
@@ -518,14 +642,21 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Contact phone</label>
-              <input
-                value={company.contactPhone}
-                onChange={(e) => {
-                  setCompany((prev) => ({ ...prev, contactPhone: e.target.value }));
-                  clearError('contactPhone');
-                }}
-                className={fieldErrors.contactPhone ? 'input--error' : undefined}
-              />
+              <div className="phone-input">
+                <select value={COUNTRY_CODE} aria-label="Country code" onChange={() => undefined}>
+                  <option value={COUNTRY_CODE}>+94 (Sri Lanka)</option>
+                </select>
+                <input
+                  placeholder="7x xxx xxxx"
+                  inputMode="numeric"
+                  value={getLocalPhone(company.contactPhone)}
+                  onChange={(e) => {
+                    setCompany((prev) => ({ ...prev, contactPhone: toFullPhone(e.target.value) }));
+                    clearError('contactPhone');
+                  }}
+                  className={fieldErrors.contactPhone ? 'input--error' : undefined}
+                />
+              </div>
               {fieldErrors.contactPhone && <span className="field__error">{fieldErrors.contactPhone}</span>}
             </div>
             <div className="field">
@@ -571,6 +702,21 @@ export default function Register() {
               />
               {fieldErrors.password && <span className="field__error">{fieldErrors.password}</span>}
             </div>
+            <div className="field">
+              <label>Confirm password</label>
+              <input
+                type="password"
+                value={account.confirmPassword}
+                onChange={(e) => {
+                  setAccount((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                  clearError('confirmPassword');
+                }}
+                className={fieldErrors.confirmPassword ? 'input--error' : undefined}
+              />
+              {fieldErrors.confirmPassword && (
+                <span className="field__error">{fieldErrors.confirmPassword}</span>
+              )}
+            </div>
           </>
         )}
 
@@ -609,14 +755,73 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Skills</label>
-              <textarea
-                value={individual.skills}
-                onChange={(e) => {
-                  setIndividual((prev) => ({ ...prev, skills: e.target.value }));
-                  clearError('skills');
-                }}
-                className={fieldErrors.skills ? 'input--error' : undefined}
-              />
+              <div className="skill-input">
+                <input
+                  placeholder="Add a skill and press Enter"
+                  value={skillDraft}
+                  onChange={(e) => setSkillDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') {
+                      return;
+                    }
+                    e.preventDefault();
+                    const cleaned = skillDraft.trim();
+                    if (!cleaned) {
+                      return;
+                    }
+                    const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                    if (exists) {
+                      setSkillDraft('');
+                      return;
+                    }
+                    setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                    setSkillDraft('');
+                    clearError('skills');
+                  }}
+                  className={fieldErrors.skills ? 'input--error' : undefined}
+                />
+                <button
+                  className="button button--ghost"
+                  type="button"
+                  onClick={() => {
+                    const cleaned = skillDraft.trim();
+                    if (!cleaned) {
+                      return;
+                    }
+                    const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+                    if (exists) {
+                      setSkillDraft('');
+                      return;
+                    }
+                    setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+                    setSkillDraft('');
+                    clearError('skills');
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              {individual.skills.length > 0 && (
+                <div className="skill-list">
+                  {individual.skills.map((skill) => (
+                    <span key={skill} className="skill-chip">
+                      {skill}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${skill}`}
+                        onClick={() => {
+                          setIndividual((prev) => ({
+                            ...prev,
+                            skills: prev.skills.filter((item) => item !== skill)
+                          }));
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               {fieldErrors.skills && <span className="field__error">{fieldErrors.skills}</span>}
             </div>
           </>
@@ -644,10 +849,119 @@ export default function Register() {
         {step === 2 && (
           <div className="notice">
             <strong>Review</strong>
-            <div>{role === 'INDIVIDUAL' ? `${individual.firstName} ${individual.lastName}` : company.companyName}</div>
-            <div>{role === 'INDIVIDUAL' ? individual.email : company.contactEmail}</div>
-            <div>{role === 'INDIVIDUAL' ? individual.phone : company.contactPhone}</div>
-            <div>{role === 'INDIVIDUAL' ? individual.profession : company.sector}</div>
+            {role === 'INDIVIDUAL' ? (
+              <div className="review-grid">
+                <div className="review-row">
+                  <span className="review-label">First name</span>
+                  <span>{individual.firstName}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Last name</span>
+                  <span>{individual.lastName}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Date of birth</span>
+                  <span>{individual.dob}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Gender</span>
+                  <span>{individual.gender}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Email</span>
+                  <span>{individual.email}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Phone</span>
+                  <span>{individual.phone}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Address</span>
+                  <span>{individual.address || '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">NIC front</span>
+                  <span>{individual.nicFrontFile ? individual.nicFrontFile.name : 'Not uploaded'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">NIC back</span>
+                  <span>{individual.nicBackFile ? individual.nicBackFile.name : 'Not uploaded'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Driver’s license</span>
+                  <span>{individual.hasDriversLicense ? 'Yes' : 'No'}</span>
+                </div>
+                {individual.hasDriversLicense && (
+                  <div className="review-row">
+                    <span className="review-label">License type</span>
+                    <span>{individual.driversLicenseType || '—'}</span>
+                  </div>
+                )}
+                <div className="review-row">
+                  <span className="review-label">Profession</span>
+                  <span>{individual.profession}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Preferred categories</span>
+                  <span>{individual.preferredCategories}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Preferred sectors</span>
+                  <span>{individual.preferredSectors || '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Skills</span>
+                  <span>{individual.skills.length > 0 ? individual.skills.join(', ') : '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Identifier</span>
+                  <span>{account.identifierType}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="review-grid">
+                <div className="review-row">
+                  <span className="review-label">Company name</span>
+                  <span>{company.companyName}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Address</span>
+                  <span>{company.address}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Contact person</span>
+                  <span>{company.contactPerson}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Contact email</span>
+                  <span>{company.contactEmail}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Contact phone</span>
+                  <span>{company.contactPhone}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Company bio</span>
+                  <span>{company.bio || '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Sector</span>
+                  <span>{company.sector}</span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Legal documents</span>
+                  <span>
+                    {company.legalDocs.length > 0
+                      ? company.legalDocs.map((file) => file.name).join(', ')
+                      : 'Not uploaded'}
+                  </span>
+                </div>
+                <div className="review-row">
+                  <span className="review-label">Identifier</span>
+                  <span>{account.identifierType}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -662,9 +976,23 @@ export default function Register() {
               Next
             </button>
           ) : (
-            <button className="button" type="submit" disabled={isSubmitting}>
-              {t('register')}
-            </button>
+            <>
+              <label className="confirm-row">
+                <input
+                  type="checkbox"
+                  checked={isConfirmed}
+                  onChange={(e) => {
+                    setIsConfirmed(e.target.checked);
+                    clearError('confirm');
+                  }}
+                />{' '}
+                I confirm the details are correct.
+              </label>
+              {fieldErrors.confirm && <span className="field__error">{fieldErrors.confirm}</span>}
+              <button className="button" type="submit" disabled={isSubmitting || !isConfirmed}>
+                Confirm registration
+              </button>
+            </>
           )}
         </div>
       </form>

@@ -14,7 +14,12 @@ export default function Home() {
           <p>{t('homeBody')}</p>
           {!user && (
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-              <Link className="button" to="/register">{t('register')}</Link>
+              <Link className="button" to="/register" state={{ role: 'INDIVIDUAL' }}>
+                {t('register')} ({t('individual')})
+              </Link>
+              <Link className="button button--ghost" to="/register" state={{ role: 'COMPANY' }}>
+                {t('register')} ({t('company')})
+              </Link>
               <Link className="button button--ghost" to="/login">{t('login')}</Link>
             </div>
           )}
