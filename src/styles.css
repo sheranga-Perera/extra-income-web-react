@@ -133,6 +133,34 @@ a {
   color: #991b1b;
 }
 
+.stepper {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.stepper__step {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  font-size: 0.85rem;
+  color: #334155;
+  background: #fff;
+}
+
+.stepper__step--active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+
+.stepper__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .footer {
   margin-top: auto;
   padding: 1rem 2rem;
