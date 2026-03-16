@@ -93,6 +93,14 @@ a {
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
 
+.panel {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
 .field {
   display: grid;
   gap: 0.4rem;
@@ -252,6 +260,219 @@ a {
   font-weight: 600;
 }
 
+.jobs-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.jobs-summary {
+  font-weight: 600;
+  color: #334155;
+}
+
+.jobs-search {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.jobs-search__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.jobs-search__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.jobs-layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+}
+
+.jobs-feed {
+  display: grid;
+  gap: 1rem;
+}
+
+.jobs-sidebar {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.jobs-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.jobs-empty {
+  text-align: center;
+}
+
+.job-card {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 1.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.job-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.job-company {
+  margin: 0.2rem 0 0;
+  color: #475569;
+  font-weight: 600;
+}
+
+.job-date {
+  font-size: 0.85rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.job-description {
+  margin: 0;
+  color: #0f172a;
+}
+
+.job-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.job-meta__label {
+  display: block;
+  font-weight: 600;
+  color: #475569;
+}
+
+.job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.job-tag {
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  background: #f1f5f9;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.hire-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.ads-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.ads-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ads-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.ad-card {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  overflow: hidden;
+  display: grid;
+}
+
+.ad-media {
+  background: #f1f5f9;
+  display: block;
+}
+
+.ad-media img,
+.ad-media video {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.ad-body {
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ad-client {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ad-badge {
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.admin-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-card {
+  gap: 1rem;
+}
+
+.admin-toolbar {
+  margin-bottom: 1.5rem;
+}
+
+.admin-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.admin-actions__buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .footer {
   margin-top: auto;
   padding: 1rem 2rem;
@@ -264,5 +485,15 @@ a {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+  }
+}
+
+@media (max-width: 980px) {
+  .jobs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .jobs-sidebar {
+    position: static;
   }
 }
