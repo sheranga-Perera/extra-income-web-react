@@ -185,7 +185,7 @@ export default function Jobs() {
     }
 
     if (!canCreate) {
-      setFormError('Only company accounts can post jobs.');
+      setFormError('Only job provider accounts can post jobs.');
       return;
     }
 
@@ -244,7 +244,7 @@ export default function Jobs() {
       <div className="jobs-header">
         <div>
           <h2>Job Feed</h2>
-          <p>Discover part-time opportunities and company postings.</p>
+          <p>Discover part-time opportunities and job provider postings.</p>
         </div>
         <div className="jobs-summary">
           {loading ? 'Loading jobs...' : `${jobs.length} open roles`}
@@ -257,7 +257,7 @@ export default function Jobs() {
             <label htmlFor="jobQuery">Search</label>
             <input
               id="jobQuery"
-              placeholder="Search by title, company, or description"
+              placeholder="Search by title, job provider, or description"
               value={filters.q}
               onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
             />
@@ -390,7 +390,7 @@ export default function Jobs() {
           <aside className="jobs-sidebar">
             <div className="panel">
               <h3>Post a job</h3>
-              <p>Company accounts can list open roles for job seekers.</p>
+              <p>Job provider accounts can list open roles for job seekers.</p>
               {formError && <div className="notice notice--error">{formError}</div>}
               {formSuccess && <div className="notice">{formSuccess}</div>}
               <form className="jobs-form" onSubmit={handleCreate}>

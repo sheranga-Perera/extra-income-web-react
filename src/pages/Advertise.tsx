@@ -98,7 +98,7 @@ export default function Advertise() {
     setRequestInfo(null);
 
     if (!canAdvertise) {
-      setError('Only company accounts can submit advertisements.');
+      setError('Only job provider accounts can submit advertisements.');
       return;
     }
 
@@ -181,7 +181,7 @@ export default function Advertise() {
       <div className="container">
         <div className="panel">
           <h2>Advertise with us</h2>
-          <p>Only company accounts can submit paid advertisements.</p>
+          <p>Only job provider accounts can submit paid advertisements.</p>
           <Link className="button button--ghost" to="/jobs">Back to Jobs</Link>
         </div>
       </div>

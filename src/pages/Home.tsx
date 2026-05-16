@@ -20,7 +20,6 @@ export default function Home() {
               <Link className="button button--ghost" to="/register" state={{ role: 'COMPANY' }}>
                 {t('register')} ({t('company')})
               </Link>
-              <Link className="button button--ghost" to="/login">{t('login')}</Link>
             </div>
           )}
         </div>
@@ -28,7 +27,7 @@ export default function Home() {
           <h3>V1 Focus</h3>
           <ul>
             <li>Secure login and registration</li>
-            <li>Individual and company profiles</li>
+            <li>Job seeker and job provider profiles</li>
             <li>Trilingual interface (English, Sinhala, Tamil)</li>
           </ul>
         </div>

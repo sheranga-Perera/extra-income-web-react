@@ -16,9 +16,9 @@ const translations: Translations = {
     ta: 'உங்கள் நேரத்திற்கு பொருந்தும் நெகிழ்வான வேலைகளை கண்டுபிடியுங்கள்'
   },
   homeBody: {
-    en: 'A trusted Sri Lankan platform for individuals and companies to connect for part-time work.',
-    si: 'ශ්‍රී ලංකාවේ පුද්ගලයන් සහ සමාගම් සඳහා අර්ධකාලීන වැඩ සම්බන්ධ කිරීම සඳහා විශ්වාසනීය වේදිකාවක්.',
-    ta: 'இலங்கையின் தனிநபர்கள் மற்றும் நிறுவனங்களுக்கு பகுதி நேர வேலைகளை இணைக்கும் நம்பகமான தளம்.'
+    en: 'A trusted Sri Lankan platform for job seekers and job providers to connect for part-time work.',
+    si: 'ශ්‍රී ලංකාවේ රැකියා සොයන්නන් සහ රැකියා සැපයුම්කරුවන් අර්ධකාලීන වැඩ සඳහා සම්බන්ධ කරන විශ්වාසනීය වේදිකාවක්.',
+    ta: 'இலங்கையின் வேலை தேடுபவர்களுக்கும் வேலை வழங்குநர்களுக்கும் பகுதி நேர வேலைகளை இணைக்கும் நம்பகமான தளம்.'
   },
   login: { en: 'Login', si: 'ප්‍රවේශය', ta: 'உள்நுழை' },
   register: { en: 'Register', si: 'ලියාපදිංචි වන්න', ta: 'பதிவு' },
@@ -28,8 +28,8 @@ const translations: Translations = {
   password: { en: 'Password', si: 'මුරපදය', ta: 'கடவுச்சொல்' },
   identifier: { en: 'Identifier Type', si: 'හඳුනාගැනීමේ වර්ගය', ta: 'அடையாள வகை' },
   role: { en: 'Account Type', si: 'ගිණුමේ වර්ගය', ta: 'கணக்கு வகை' },
-  individual: { en: 'Individual', si: 'පුද්ගල', ta: 'தனி நபர்' },
-  company: { en: 'Company', si: 'සමාගම', ta: 'நிறுவனம்' },
+  individual: { en: 'Job Seeker', si: 'රැකියා සොයන්නා', ta: 'வேலை தேடுபவர்' },
+  company: { en: 'Job Provider', si: 'රැකියා සැපයුම්කරු', ta: 'வேலை வழங்குநர்' },
   save: { en: 'Save', si: 'සුරකින්න', ta: 'சேமி' },
   fullName: { en: 'Full Name', si: 'සම්පූර්ණ නම', ta: 'முழு பெயர்' },
   phone: { en: 'Phone', si: 'දුරකථන අංකය', ta: 'தொலைபேசி' },
