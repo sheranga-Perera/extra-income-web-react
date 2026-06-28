@@ -6,6 +6,7 @@ import {
   type CompanyProfilePayload,
   type IndividualProfilePayload
 } from '../api/profile';
+import { fetchCompanySectors } from '../api/metadata';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 
@@ -108,6 +109,11 @@ export default function Profile() {
   const [individualNicBackFile, setIndividualNicBackFile] = useState<File | null>(null);
   const [companyLegalDocFiles, setCompanyLegalDocFiles] = useState<File[]>([]);
   const [skillDraft, setSkillDraft] = useState('');
+  const [nicPreview, setNicPreview] = useState<{ title: string; src: string } | null>(null);
+  const [nicFrontInputKey, setNicFrontInputKey] = useState(0);
+  const [nicBackInputKey, setNicBackInputKey] = useState(0);
+  const [legalDocsInputKey, setLegalDocsInputKey] = useState(0);
+  const [companySectors, setCompanySectors] = useState<string[]>([]);
 
   const role = user?.role;
 
@@ -273,6 +279,40 @@ export default function Profile() {
     loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    fetchCompanySectors()
+      .then(setCompanySectors)
+      .catch((err) => setError((err as Error).message));
+  }, []);
+
+  const addSkill = useCallback(() => {
+    const cleaned = skillDraft.trim();
+    if (!cleaned) {
+      return;
+    }
+    const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
+    if (!exists) {
+      setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
+    }
+    setSkillDraft('');
+  }, [individual.skills, skillDraft]);
+
+  const previewNicImage = useCallback(async (title: string, file: File | null, savedImage: string) => {
+    setError(null);
+    if (file) {
+      try {
+        setNicPreview({ title, src: await readFileAsDataUrl(file) });
+      } catch (err) {
+        setError((err as Error).message);
+      }
+      return;
+    }
+
+    if (savedImage) {
+      setNicPreview({ title, src: savedImage });
+    }
+  }, []);
+
   const form = useMemo(() => {
     if (role === 'COMPANY') {
       return (
@@ -415,18 +455,48 @@ export default function Profile() {
           </div>
           <div className="field">
             <label>Company sector</label>
-            <input
+            <select
               value={company.sector}
               onChange={(e) => setCompany((prev) => ({ ...prev, sector: e.target.value }))}
-            />
+            >
+              <option value="">{companySectors.length > 0 ? 'Select sector' : 'Loading sectors...'}</option>
+              {company.sector && !companySectors.includes(company.sector) && (
+                <option value={company.sector}>{company.sector}</option>
+              )}
+              {companySectors.map((sector) => (
+                <option key={sector} value={sector}>{sector}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label>Legal documents</label>
+            <div className="document-input document-input--actions">
+              <input
+                value={
+                  companyLegalDocFiles.length > 0
+                    ? `${companyLegalDocFiles.length} new file(s) selected`
+                    : company.legalDocs.length > 0
+                      ? `${company.legalDocs.length} document(s) uploaded`
+                      : 'Not uploaded'
+                }
+                disabled
+              />
+              {(company.legalDocs.length > 0 || companyLegalDocFiles.length > 0) && (
+                <button
+                  className="button button--ghost"
+                  type="button"
+                  onClick={() => {
+                    setCompany((prev) => ({ ...prev, legalDocs: [] }));
+                    setCompanyLegalDocFiles([]);
+                    setLegalDocsInputKey((current) => current + 1);
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
             <input
-              value={company.legalDocs.length > 0 ? `${company.legalDocs.length} document(s) uploaded` : 'Not uploaded'}
-              disabled
-            />
-            <input
+              key={legalDocsInputKey}
               type="file"
               multiple
               onChange={(e) => {
@@ -565,9 +635,34 @@ export default function Profile() {
         </div>
         <div className="field">
           <label>NIC front</label>
-          <input value={individual.nicFront ? 'Uploaded' : 'Not uploaded'} disabled />
+          <div className="document-input document-input--actions">
+            <input value={individualNicFrontFile?.name ?? (individual.nicFront ? 'Uploaded' : 'Not uploaded')} disabled />
+            <button
+              className="button button--ghost"
+              type="button"
+              disabled={!individual.nicFront && !individualNicFrontFile}
+              onClick={() => previewNicImage('NIC front', individualNicFrontFile, individual.nicFront)}
+            >
+              Preview
+            </button>
+            {(individual.nicFront || individualNicFrontFile) && (
+              <button
+                className="button button--ghost"
+                type="button"
+                onClick={() => {
+                  setIndividual((prev) => ({ ...prev, nicFront: '' }));
+                  setIndividualNicFrontFile(null);
+                  setNicFrontInputKey((current) => current + 1);
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
           <input
+            key={nicFrontInputKey}
             type="file"
+            accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
               setIndividualNicFrontFile(file);
@@ -576,9 +671,34 @@ export default function Profile() {
         </div>
         <div className="field">
           <label>NIC back</label>
-          <input value={individual.nicBack ? 'Uploaded' : 'Not uploaded'} disabled />
+          <div className="document-input document-input--actions">
+            <input value={individualNicBackFile?.name ?? (individual.nicBack ? 'Uploaded' : 'Not uploaded')} disabled />
+            <button
+              className="button button--ghost"
+              type="button"
+              disabled={!individual.nicBack && !individualNicBackFile}
+              onClick={() => previewNicImage('NIC back', individualNicBackFile, individual.nicBack)}
+            >
+              Preview
+            </button>
+            {(individual.nicBack || individualNicBackFile) && (
+              <button
+                className="button button--ghost"
+                type="button"
+                onClick={() => {
+                  setIndividual((prev) => ({ ...prev, nicBack: '' }));
+                  setIndividualNicBackFile(null);
+                  setNicBackInputKey((current) => current + 1);
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
           <input
+            key={nicBackInputKey}
             type="file"
+            accept="image/*"
             onChange={(e) => {
               const file = e.target.files?.[0] ?? null;
               setIndividualNicBackFile(file);
@@ -643,10 +763,18 @@ export default function Profile() {
         </div>
         <div className="field">
           <label>Preferred sectors</label>
-          <input
+          <select
             value={individual.preferredSectors}
             onChange={(e) => setIndividual((prev) => ({ ...prev, preferredSectors: e.target.value }))}
-          />
+          >
+            <option value="">{companySectors.length > 0 ? 'Select sector' : 'Loading sectors...'}</option>
+            {individual.preferredSectors && !companySectors.includes(individual.preferredSectors) && (
+              <option value={individual.preferredSectors}>{individual.preferredSectors}</option>
+            )}
+            {companySectors.map((sector) => (
+              <option key={sector} value={sector}>{sector}</option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label>Skills</label>
@@ -660,35 +788,13 @@ export default function Profile() {
                   return;
                 }
                 e.preventDefault();
-                const cleaned = skillDraft.trim();
-                if (!cleaned) {
-                  return;
-                }
-                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
-                if (exists) {
-                  setSkillDraft('');
-                  return;
-                }
-                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
-                setSkillDraft('');
+                addSkill();
               }}
             />
             <button
               className="button button--ghost"
               type="button"
-              onClick={() => {
-                const cleaned = skillDraft.trim();
-                if (!cleaned) {
-                  return;
-                }
-                const exists = individual.skills.some((skill) => skill.toLowerCase() === cleaned.toLowerCase());
-                if (exists) {
-                  setSkillDraft('');
-                  return;
-                }
-                setIndividual((prev) => ({ ...prev, skills: [...prev.skills, cleaned] }));
-                setSkillDraft('');
-              }}
+              onClick={addSkill}
             >
               Add
             </button>
@@ -729,7 +835,23 @@ export default function Profile() {
         </div>
       </>
     );
-  }, [role, company, individual, t, fieldErrors]);
+  }, [
+    role,
+    company,
+    individual,
+    t,
+    fieldErrors,
+    skillDraft,
+    addSkill,
+    individualNicFrontFile,
+    individualNicBackFile,
+    companyLegalDocFiles,
+    companySectors,
+    nicFrontInputKey,
+    nicBackInputKey,
+    legalDocsInputKey,
+    previewNicImage
+  ]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -775,6 +897,7 @@ export default function Profile() {
       setIndividualNicFrontFile(null);
       setIndividualNicBackFile(null);
       setCompanyLegalDocFiles([]);
+      setNicPreview(null);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -792,9 +915,13 @@ export default function Profile() {
     setError(null);
     setFieldErrors({});
     setSkillDraft('');
+    setNicPreview(null);
     setIndividualNicFrontFile(null);
     setIndividualNicBackFile(null);
     setCompanyLegalDocFiles([]);
+    setNicFrontInputKey((current) => current + 1);
+    setNicBackInputKey((current) => current + 1);
+    setLegalDocsInputKey((current) => current + 1);
     setIsEditing(false);
     await loadProfile();
   };
@@ -947,6 +1074,23 @@ export default function Profile() {
           </div>
           {form}
         </form>
+      )}
+      {nicPreview && (
+        <div className="image-preview" role="dialog" aria-modal="true" aria-label={nicPreview.title}>
+          <div className="image-preview__panel">
+            <div className="image-preview__header">
+              <h3>{nicPreview.title}</h3>
+              <button
+                className="button button--ghost"
+                type="button"
+                onClick={() => setNicPreview(null)}
+              >
+                Close
+              </button>
+            </div>
+            <img src={nicPreview.src} alt={nicPreview.title} />
+          </div>
+        </div>
       )}
     </div>
   );

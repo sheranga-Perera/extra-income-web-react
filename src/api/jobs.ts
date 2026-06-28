@@ -1,5 +1,7 @@
 import { apiRequest } from './http';
 
+export type CvRequirement = 'REQUIRED' | 'OPTIONAL' | 'NOT_REQUIRED';
+
 export interface JobPostPayload {
   title: string;
   description: string;
@@ -10,6 +12,7 @@ export interface JobPostPayload {
   hourlyRate?: number;
   contractType?: string;
   contractDuration: string;
+  cvRequirement?: CvRequirement;
 }
 
 export interface JobPostResponse extends JobPostPayload {
@@ -17,6 +20,39 @@ export interface JobPostResponse extends JobPostPayload {
   companyName: string;
   status: string;
   createdAt: string;
+  applied?: boolean;
+}
+
+export interface JobApplicationResponse {
+  id: string;
+  jobId: string;
+  status: string;
+  createdAt: string;
+  cvUploaded: boolean;
+}
+
+export interface JobApplicantResponse {
+  applicationId: string;
+  jobId: string;
+  individualUserId: string;
+  fullName: string;
+  phone?: string | null;
+  email?: string | null;
+  location?: string | null;
+  profession?: string | null;
+  skills?: string | null;
+  status: string;
+  appliedAt: string;
+  cvUploaded: boolean;
+  cvDocument?: string | null;
+}
+
+export interface AppliedJobResponse {
+  applicationId: string;
+  status: string;
+  appliedAt: string;
+  cvUploaded: boolean;
+  job: JobPostResponse;
 }
 
 export async function fetchJobs(params: {
@@ -47,4 +83,19 @@ export async function createJob(payload: JobPostPayload): Promise<JobPostRespons
     method: 'POST',
     body: JSON.stringify(payload)
   });
+}
+
+export async function applyForJob(jobId: string, payload: { cvDocument?: string } = {}): Promise<JobApplicationResponse> {
+  return apiRequest(`/jobs/${jobId}/applications`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchJobApplicants(jobId: string): Promise<JobApplicantResponse[]> {
+  return apiRequest(`/jobs/${jobId}/applications`);
+}
+
+export async function fetchMyJobApplications(): Promise<AppliedJobResponse[]> {
+  return apiRequest('/jobs/applications/me');
 }
