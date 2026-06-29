@@ -205,8 +205,8 @@ export default function Profile() {
         return;
       }
       try {
-        const data = await fetchProfile(role);
         if (role === 'COMPANY') {
+          const data = await fetchProfile('COMPANY');
           setCompany({
             companyName: data.companyName ?? '',
             registrationNumber: data.registrationNumber ?? '',
@@ -220,6 +220,7 @@ export default function Profile() {
             legalDocs: data.legalDocs ?? []
           });
         } else {
+          const data = await fetchProfile('INDIVIDUAL');
           setIndividual({
             fullName: data.fullName ?? '',
             phone: data.phone ?? '',
