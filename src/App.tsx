@@ -80,7 +80,12 @@ const router = createBrowserRouter(
         </div>
       )
     }
-  ]
+  ],
+  {
+    future: {
+      v7_relativeSplatPath: true
+    }
+  }
 );
 
 export default function App() {

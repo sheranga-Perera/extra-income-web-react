@@ -39,9 +39,16 @@ export interface CompanyProfilePayload {
 
 export type ProfilePayload = IndividualProfilePayload | CompanyProfilePayload;
 
-export async function fetchProfile(role: Role): Promise<ProfilePayload> {
+export type IndividualProfileResponse = IndividualProfilePayload;
+
+export type CompanyProfileResponse = CompanyProfilePayload;
+
+export function fetchProfile(role: 'COMPANY'): Promise<CompanyProfileResponse>;
+export function fetchProfile(role: 'INDIVIDUAL'): Promise<IndividualProfileResponse>;
+export function fetchProfile(role: Role): Promise<CompanyProfileResponse | IndividualProfileResponse>;
+export async function fetchProfile(role: Role): Promise<CompanyProfileResponse | IndividualProfileResponse> {
   const path = role === 'COMPANY' ? '/profiles/company/me' : '/profiles/individual/me';
-  return apiRequest<ProfilePayload>(path);
+  return apiRequest<CompanyProfileResponse | IndividualProfileResponse>(path);
 }
 
 export async function saveProfile(role: Role, payload: ProfilePayload) {
