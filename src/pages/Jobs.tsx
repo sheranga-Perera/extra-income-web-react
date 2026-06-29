@@ -1,8 +1,20 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { createJob, fetchJobs, JobPostPayload, JobPostResponse } from '../api/jobs';
+import {
+  AppliedJobResponse,
+  applyForJob,
+  createJob,
+  CvRequirement,
+  fetchJobApplicants,
+  fetchJobs,
+  fetchMyJobApplications,
+  JobApplicantResponse,
+  JobPostPayload,
+  JobPostResponse
+} from '../api/jobs';
 import { useAuth } from '../context/AuthContext';
 import { fetchActiveAds, type ActiveAdResponse } from '../api/ads';
+import { fetchCompanySectors, fetchJobContractTypes } from '../api/metadata';
 
 interface JobFilters {
   q: string;
@@ -25,6 +37,7 @@ interface JobFormState {
   hourlyRate: string;
   contractType: string;
   contractDuration: string;
+  cvRequirement: CvRequirement;
 }
 
 const initialFilters: JobFilters = {
@@ -47,8 +60,22 @@ const initialForm: JobFormState = {
   hoursPerWeek: '',
   hourlyRate: '',
   contractType: '',
-  contractDuration: ''
+  contractDuration: '',
+  cvRequirement: 'NOT_REQUIRED'
 };
+
+const cvRequirementLabels: Record<CvRequirement, string> = {
+  REQUIRED: 'Required',
+  OPTIONAL: 'Optional',
+  NOT_REQUIRED: 'Not Required'
+};
+
+const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+  reader.readAsDataURL(file);
+});
 
 const formatMoney = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -103,11 +130,25 @@ export default function Jobs() {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [applicationNotice, setApplicationNotice] = useState<string | null>(null);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [applicationCvFiles, setApplicationCvFiles] = useState<Record<string, File | null>>({});
+  const [appliedJobs, setAppliedJobs] = useState<AppliedJobResponse[]>([]);
+  const [appliedJobsLoading, setAppliedJobsLoading] = useState(false);
+  const [appliedJobsError, setAppliedJobsError] = useState<string | null>(null);
+  const [applicantsByJobId, setApplicantsByJobId] = useState<Record<string, JobApplicantResponse[]>>({});
+  const [expandedApplicantsJobId, setExpandedApplicantsJobId] = useState<string | null>(null);
+  const [applicantsLoadingJobId, setApplicantsLoadingJobId] = useState<string | null>(null);
+  const [applicantsError, setApplicantsError] = useState<string | null>(null);
   const [ads, setAds] = useState<ActiveAdResponse[]>([]);
   const [adsError, setAdsError] = useState<string | null>(null);
   const [adsLoading, setAdsLoading] = useState(false);
+  const [contractTypes, setContractTypes] = useState<string[]>([]);
+  const [companySectors, setCompanySectors] = useState<string[]>([]);
 
   const canCreate = user?.role === 'COMPANY' || user?.role === 'ADMIN';
+  const canViewApplicants = user?.role === 'COMPANY';
+  const canApply = user?.role === 'INDIVIDUAL';
   const showAds = user?.role === 'INDIVIDUAL';
 
   const loadJobs = async (nextFilters: JobFilters) => {
@@ -135,6 +176,25 @@ export default function Jobs() {
     }
   };
 
+  const loadMyApplications = async () => {
+    if (!canApply) {
+      setAppliedJobs([]);
+      return;
+    }
+
+    setAppliedJobsLoading(true);
+    setAppliedJobsError(null);
+    try {
+      const data = await fetchMyJobApplications();
+      setAppliedJobs(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load applied jobs.';
+      setAppliedJobsError(message);
+    } finally {
+      setAppliedJobsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       setJobs([]);
@@ -142,6 +202,23 @@ export default function Jobs() {
     }
     loadJobs(filters).catch(() => undefined);
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !canApply) {
+      setAppliedJobs([]);
+      return;
+    }
+    loadMyApplications().catch(() => undefined);
+  }, [user, canApply]);
+
+  useEffect(() => {
+    Promise.all([fetchJobContractTypes(), fetchCompanySectors()])
+      .then(([contractTypeData, sectorData]) => {
+        setContractTypes(contractTypeData);
+        setCompanySectors(sectorData);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load job metadata.'));
+  }, []);
 
   useEffect(() => {
     if (!user || !showAds) {
@@ -185,7 +262,7 @@ export default function Jobs() {
     }
 
     if (!canCreate) {
-      setFormError('Only company accounts can post jobs.');
+      setFormError('Only job provider accounts can post jobs.');
       return;
     }
 
@@ -210,7 +287,8 @@ export default function Jobs() {
       category: normalizeOptional(form.category),
       sector: normalizeOptional(form.sector),
       location: normalizeOptional(form.location),
-      contractType: normalizeOptional(form.contractType)
+      contractType: normalizeOptional(form.contractType),
+      cvRequirement: form.cvRequirement
     };
 
     try {
@@ -221,6 +299,70 @@ export default function Jobs() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create job post.';
       setFormError(message);
+    }
+  };
+
+  const handleApply = async (job: JobPostResponse) => {
+    if (!user) {
+      setError('Login required to apply for jobs.');
+      return;
+    }
+    if (!canApply) {
+      setError('Only individual accounts can apply for jobs.');
+      return;
+    }
+
+    setError(null);
+    setApplicationNotice(null);
+    setApplyingJobId(job.id);
+    try {
+      const cvRequirement = job.cvRequirement ?? 'NOT_REQUIRED';
+      const cvFile = applicationCvFiles[job.id] ?? null;
+      if (cvRequirement === 'REQUIRED' && !cvFile) {
+        setError('Upload your CV before applying for this job.');
+        return;
+      }
+
+      const cvDocument = cvFile ? await readFileAsDataUrl(cvFile) : undefined;
+      await applyForJob(job.id, { cvDocument });
+      setJobs((prev) => prev.map((existingJob) => (
+        existingJob.id === job.id ? { ...existingJob, applied: true } : existingJob
+      )));
+      setApplicationCvFiles((prev) => ({ ...prev, [job.id]: null }));
+      setApplicationNotice('Application submitted.');
+      await loadMyApplications();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to apply for job.';
+      setError(message);
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
+  const handleToggleApplicants = async (jobId: string) => {
+    if (!canViewApplicants) {
+      return;
+    }
+    setApplicantsError(null);
+    if (expandedApplicantsJobId === jobId) {
+      setExpandedApplicantsJobId(null);
+      return;
+    }
+
+    setExpandedApplicantsJobId(jobId);
+    if (applicantsByJobId[jobId]) {
+      return;
+    }
+
+    setApplicantsLoadingJobId(jobId);
+    try {
+      const data = await fetchJobApplicants(jobId);
+      setApplicantsByJobId((prev) => ({ ...prev, [jobId]: data }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load applicants.';
+      setApplicantsError(message);
+    } finally {
+      setApplicantsLoadingJobId(null);
     }
   };
 
@@ -244,7 +386,7 @@ export default function Jobs() {
       <div className="jobs-header">
         <div>
           <h2>Job Feed</h2>
-          <p>Discover part-time opportunities and company postings.</p>
+          <p>Discover part-time opportunities and job provider postings.</p>
         </div>
         <div className="jobs-summary">
           {loading ? 'Loading jobs...' : `${jobs.length} open roles`}
@@ -257,7 +399,7 @@ export default function Jobs() {
             <label htmlFor="jobQuery">Search</label>
             <input
               id="jobQuery"
-              placeholder="Search by title, company, or description"
+              placeholder="Search by title, job provider, or description"
               value={filters.q}
               onChange={(event) => setFilters((prev) => ({ ...prev, q: event.target.value }))}
             />
@@ -273,12 +415,16 @@ export default function Jobs() {
           </div>
           <div className="field">
             <label htmlFor="jobSector">Sector</label>
-            <input
+            <select
               id="jobSector"
-              placeholder="Private, Government, Startup..."
               value={filters.sector}
               onChange={(event) => setFilters((prev) => ({ ...prev, sector: event.target.value }))}
-            />
+            >
+              <option value="">All sectors</option>
+              {companySectors.map((sector) => (
+                <option key={sector} value={sector}>{sector}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="jobLocation">Location</label>
@@ -291,12 +437,16 @@ export default function Jobs() {
           </div>
           <div className="field">
             <label htmlFor="jobContractType">Contract type</label>
-            <input
+            <select
               id="jobContractType"
-              placeholder="Part-time, shift-based"
               value={filters.contractType}
               onChange={(event) => setFilters((prev) => ({ ...prev, contractType: event.target.value }))}
-            />
+            >
+              <option value="">All contract types</option>
+              {contractTypes.map((contractType) => (
+                <option key={contractType} value={contractType}>{contractType}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="jobContractDuration">Contract duration</label>
@@ -336,9 +486,52 @@ export default function Jobs() {
         </div>
       </form>
 
+      {canApply && (
+        <section className="panel applications-panel">
+          <div className="applications-panel__header">
+            <div>
+              <h3>My applications</h3>
+              <p>Jobs you have already applied for.</p>
+            </div>
+            <span className="jobs-summary">
+              {appliedJobsLoading ? 'Loading...' : `${appliedJobs.length} applications`}
+            </span>
+          </div>
+          {appliedJobsError && <div className="notice notice--error">{appliedJobsError}</div>}
+          {!appliedJobsLoading && appliedJobs.length === 0 && !appliedJobsError && (
+            <div className="notice">You have not applied for any jobs yet.</div>
+          )}
+          {appliedJobs.length > 0 && (
+            <div className="applications-list">
+              {appliedJobs.map((application) => (
+                <article key={application.applicationId} className="application-row">
+                  <div>
+                    <h4>{application.job.title}</h4>
+                    <p>{application.job.companyName}</p>
+                  </div>
+                  <div>
+                    <span className="job-meta__label">Applied</span>
+                    <span>{formatDate(application.appliedAt)}</span>
+                  </div>
+                  <div>
+                    <span className="job-meta__label">Status</span>
+                    <span>{application.status}</span>
+                  </div>
+                  <div>
+                    <span className="job-meta__label">CV</span>
+                    <span>{application.cvUploaded ? 'Uploaded' : 'Not uploaded'}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="jobs-layout">
         <section className="jobs-feed">
           {error && <div className="notice notice--error">{error}</div>}
+          {applicationNotice && <div className="notice">{applicationNotice}</div>}
           {!loading && jobs.length === 0 && (
             <div className="panel jobs-empty">
               <h3>No matching jobs</h3>
@@ -347,6 +540,10 @@ export default function Jobs() {
           )}
           {jobs.map((job) => {
             const tags = [job.category, job.sector, job.location].filter(Boolean) as string[];
+            const isApplied = Boolean(job.applied);
+            const isApplying = applyingJobId === job.id;
+            const cvRequirement = job.cvRequirement ?? 'NOT_REQUIRED';
+            const showCvUpload = canApply && cvRequirement !== 'NOT_REQUIRED' && !isApplied;
             return (
               <article key={job.id} className="job-card">
                 <div className="job-card__header">
@@ -373,11 +570,115 @@ export default function Jobs() {
                       {job.contractDuration}
                     </span>
                   </div>
+                  <div>
+                    <span className="job-meta__label">CV</span>
+                    <span>{cvRequirementLabels[cvRequirement]}</span>
+                  </div>
                 </div>
                 {tags.length > 0 && (
                   <div className="job-tags">
                     {tags.map((tag) => (
                       <span key={`${job.id}-${tag}`} className="job-tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
+                {canApply && (
+                  <div className="job-card__actions">
+                    {showCvUpload && (
+                      <div className="field job-card__cv-field">
+                        <label htmlFor={`job-cv-${job.id}`}>
+                          CV {cvRequirement === 'REQUIRED' ? '(required)' : '(optional)'}
+                        </label>
+                        <input
+                          id={`job-cv-${job.id}`}
+                          type="file"
+                          accept=".pdf,.doc,.docx,image/*"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            setApplicationCvFiles((prev) => ({ ...prev, [job.id]: file }));
+                          }}
+                        />
+                      </div>
+                    )}
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={isApplied || isApplying}
+                      onClick={() => handleApply(job)}
+                    >
+                      {isApplied ? 'Applied' : isApplying ? 'Applying...' : 'Apply'}
+                    </button>
+                  </div>
+                )}
+                {canViewApplicants && (
+                  <div className="job-card__actions">
+                    <button
+                      className="button button--ghost"
+                      type="button"
+                      disabled={applicantsLoadingJobId === job.id}
+                      onClick={() => handleToggleApplicants(job.id)}
+                    >
+                      {applicantsLoadingJobId === job.id
+                        ? 'Loading applicants...'
+                        : expandedApplicantsJobId === job.id
+                          ? 'Hide applicants'
+                          : 'View applicants'}
+                    </button>
+                  </div>
+                )}
+                {canViewApplicants && expandedApplicantsJobId === job.id && (
+                  <div className="applicants-panel">
+                    {applicantsError && <div className="notice notice--error">{applicantsError}</div>}
+                    {applicantsLoadingJobId === job.id && <div className="notice">Loading applicants...</div>}
+                    {applicantsByJobId[job.id]?.length === 0 && applicantsLoadingJobId !== job.id && (
+                      <div className="notice">No applicants yet.</div>
+                    )}
+                    {applicantsByJobId[job.id]?.map((applicant) => (
+                      <article key={applicant.applicationId} className="applicant-card">
+                        <div className="applicant-card__header">
+                          <div>
+                            <h4>{applicant.fullName || 'Unnamed applicant'}</h4>
+                            <p>{applicant.profession || 'Profession not specified'}</p>
+                          </div>
+                          <span className="job-date">{formatDate(applicant.appliedAt)}</span>
+                        </div>
+                        <div className="job-meta">
+                          <div>
+                            <span className="job-meta__label">Phone</span>
+                            <span>{applicant.phone || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="job-meta__label">Email</span>
+                            <span>{applicant.email || 'Not provided'}</span>
+                          </div>
+                          <div>
+                            <span className="job-meta__label">Location</span>
+                            <span>{applicant.location || 'Not provided'}</span>
+                          </div>
+                        </div>
+                        {applicant.skills && (
+                          <div className="job-tags">
+                            {applicant.skills.split(',').map((skill) => skill.trim()).filter(Boolean).map((skill) => (
+                              <span key={`${applicant.applicationId}-${skill}`} className="job-tag">{skill}</span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="job-card__actions">
+                          {applicant.cvUploaded && applicant.cvDocument ? (
+                            <a
+                              className="button button--ghost"
+                              href={applicant.cvDocument}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              View CV
+                            </a>
+                          ) : (
+                            <span className="job-date">No CV uploaded</span>
+                          )}
+                        </div>
+                      </article>
                     ))}
                   </div>
                 )}
@@ -390,7 +691,7 @@ export default function Jobs() {
           <aside className="jobs-sidebar">
             <div className="panel">
               <h3>Post a job</h3>
-              <p>Company accounts can list open roles for job seekers.</p>
+              <p>Job provider accounts can list open roles for job seekers.</p>
               {formError && <div className="notice notice--error">{formError}</div>}
               {formSuccess && <div className="notice">{formSuccess}</div>}
               <form className="jobs-form" onSubmit={handleCreate}>
@@ -423,11 +724,19 @@ export default function Jobs() {
                 </div>
                 <div className="field">
                   <label htmlFor="jobSectorInput">Sector</label>
-                  <input
+                  <select
                     id="jobSectorInput"
                     value={form.sector}
                     onChange={(event) => setForm((prev) => ({ ...prev, sector: event.target.value }))}
-                  />
+                  >
+                    <option value="">{companySectors.length > 0 ? 'Select sector' : 'Loading sectors...'}</option>
+                    {form.sector && !companySectors.includes(form.sector) && (
+                      <option value={form.sector}>{form.sector}</option>
+                    )}
+                    {companySectors.map((sector) => (
+                      <option key={sector} value={sector}>{sector}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="field">
                   <label htmlFor="jobLocationInput">Location</label>
@@ -460,13 +769,20 @@ export default function Jobs() {
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="jobContractType">Contract type</label>
-                  <input
-                    id="jobContractType"
+                  <label htmlFor="jobContractTypeInput">Contract type</label>
+                  <select
+                    id="jobContractTypeInput"
                     value={form.contractType}
                     onChange={(event) => setForm((prev) => ({ ...prev, contractType: event.target.value }))}
-                    placeholder="Part-time, shift-based"
-                  />
+                  >
+                    <option value="">{contractTypes.length > 0 ? 'Select contract type' : 'Loading contract types...'}</option>
+                    {form.contractType && !contractTypes.includes(form.contractType) && (
+                      <option value={form.contractType}>{form.contractType}</option>
+                    )}
+                    {contractTypes.map((contractType) => (
+                      <option key={contractType} value={contractType}>{contractType}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="field">
                   <label htmlFor="jobContractDuration">Contract duration</label>
@@ -476,6 +792,21 @@ export default function Jobs() {
                     onChange={(event) => setForm((prev) => ({ ...prev, contractDuration: event.target.value }))}
                     placeholder="3 months"
                   />
+                </div>
+                <div className="field">
+                  <label htmlFor="jobCvRequirement">CV requirement</label>
+                  <select
+                    id="jobCvRequirement"
+                    value={form.cvRequirement}
+                    onChange={(event) => setForm((prev) => ({
+                      ...prev,
+                      cvRequirement: event.target.value as CvRequirement
+                    }))}
+                  >
+                    <option value="REQUIRED">Required</option>
+                    <option value="OPTIONAL">Optional</option>
+                    <option value="NOT_REQUIRED">Not Required</option>
+                  </select>
                 </div>
                 <button className="button" type="submit">Publish Job</button>
               </form>

@@ -45,6 +45,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       const data = text ? JSON.parse(text) : null;
       if (data?.message) {
         message = data.message;
+      } else if (data?.detail) {
+        message = data.detail;
+      } else if (data?.error) {
+        message = data.error;
       }
     } catch {
       // ignore JSON parse errors

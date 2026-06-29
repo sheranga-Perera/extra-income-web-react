@@ -26,7 +26,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = 'auth_token';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [token, setToken] = useState<string | null>(() => {
+    const storedToken = localStorage.getItem(STORAGE_KEY);
+    setAuthToken(storedToken);
+    return storedToken;
+  });
   const [user, setUser] = useState<UserSummary | null>(null);
 
   const refresh = useCallback(async () => {
@@ -48,10 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh().catch(() => setUser(null));
   }, [refresh]);
-
-  useEffect(() => {
-    setAuthToken(token);
-  }, [token]);
 
   const login = useCallback(async (username: string, password: string) => {
     const newToken = await loginUser(username, password);

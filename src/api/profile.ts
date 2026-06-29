@@ -2,6 +2,7 @@ import { apiRequest } from './http';
 import type { Role } from '../context/AuthContext';
 
 export interface IndividualProfilePayload {
+  profilePicture?: string | null;
   fullName: string;
   phone: string;
   location: string;
@@ -23,6 +24,7 @@ export interface IndividualProfilePayload {
 }
 
 export interface CompanyProfilePayload {
+  profilePicture?: string | null;
   companyName: string;
   registrationNumber: string;
   contactPerson: string;
@@ -34,6 +36,8 @@ export interface CompanyProfilePayload {
   sector?: string | null;
   legalDocs?: string[] | null;
 }
+
+export type ProfilePayload = IndividualProfilePayload | CompanyProfilePayload;
 
 export type IndividualProfileResponse = IndividualProfilePayload;
 
@@ -47,7 +51,7 @@ export async function fetchProfile(role: Role): Promise<CompanyProfileResponse |
   return apiRequest<CompanyProfileResponse | IndividualProfileResponse>(path);
 }
 
-export async function saveProfile(role: Role, payload: IndividualProfilePayload | CompanyProfilePayload) {
+export async function saveProfile(role: Role, payload: ProfilePayload) {
   const path = role === 'COMPANY' ? '/profiles/company' : '/profiles/individual';
   return apiRequest(path, {
     method: 'PUT',

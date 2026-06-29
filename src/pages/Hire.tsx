@@ -77,8 +77,8 @@ export default function Hire() {
     return (
       <div className="container">
         <div className="panel">
-          <h2>Hire Talent</h2>
-          <p>Login is required to search for individuals.</p>
+          <h2>Hire Job Seekers</h2>
+          <p>Login is required to search for job seekers.</p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link className="button" to="/login">Login</Link>
             <Link className="button button--ghost" to="/">Back to Home</Link>
@@ -92,8 +92,8 @@ export default function Hire() {
     return (
       <div className="container">
         <div className="panel">
-          <h2>Hire Talent</h2>
-          <p>Only company accounts can search and hire individuals.</p>
+          <h2>Hire Job Seekers</h2>
+          <p>Only job provider accounts can search and hire job seekers.</p>
           <Link className="button button--ghost" to="/jobs">Back to Jobs</Link>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function Hire() {
     <div className="container">
       <div className="jobs-header">
         <div>
-          <h2>Hire Individuals</h2>
+          <h2>Hire Job Seekers</h2>
           <p>Search job seekers by skills, location, and profession.</p>
         </div>
         <div className="jobs-summary">

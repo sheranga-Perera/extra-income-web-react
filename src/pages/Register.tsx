@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { fetchCompanySectors } from '../api/metadata';
+import PasswordInput from '../components/PasswordInput';
 import { useAuth, IdentifierType, Role } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 
@@ -68,6 +70,7 @@ export default function Register() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [skillDraft, setSkillDraft] = useState('');
+  const [companySectors, setCompanySectors] = useState<string[]>([]);
 
   useEffect(() => {
     const nextRole = getRoleFromLocation(location.state, location.search);
@@ -77,6 +80,12 @@ export default function Register() {
       setFieldErrors({});
     }
   }, [location.search, location.state, role]);
+
+  useEffect(() => {
+    fetchCompanySectors()
+      .then(setCompanySectors)
+      .catch((err) => setError((err as Error).message));
+  }, []);
 
   const isValidEmail = (value: string) => /^(?!\s*$)[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   const isValidPhone = (value: string) => new RegExp(`^\\${COUNTRY_CODE}[0-9]{9}$`).test(value);
@@ -561,8 +570,7 @@ export default function Register() {
             </div>
             <div className="field">
               <label>{t('password')}</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={account.password}
                 onChange={(e) => {
                   setAccount((prev) => ({ ...prev, password: e.target.value }));
@@ -574,8 +582,7 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Confirm password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={account.confirmPassword}
                 onChange={(e) => {
                   setAccount((prev) => ({ ...prev, confirmPassword: e.target.value }));
@@ -668,14 +675,19 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Company sector</label>
-              <input
+              <select
                 value={company.sector}
                 onChange={(e) => {
                   setCompany((prev) => ({ ...prev, sector: e.target.value }));
                   clearError('sector');
                 }}
                 className={fieldErrors.sector ? 'input--error' : undefined}
-              />
+              >
+                <option value="">{companySectors.length > 0 ? 'Select sector' : 'Loading sectors...'}</option>
+                {companySectors.map((sector) => (
+                  <option key={sector} value={sector}>{sector}</option>
+                ))}
+              </select>
               {fieldErrors.sector && <span className="field__error">{fieldErrors.sector}</span>}
             </div>
             <div className="field">
@@ -691,8 +703,7 @@ export default function Register() {
             </div>
             <div className="field">
               <label>{t('password')}</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={account.password}
                 onChange={(e) => {
                   setAccount((prev) => ({ ...prev, password: e.target.value }));
@@ -704,8 +715,7 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Confirm password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={account.confirmPassword}
                 onChange={(e) => {
                   setAccount((prev) => ({ ...prev, confirmPassword: e.target.value }));
@@ -748,10 +758,15 @@ export default function Register() {
             </div>
             <div className="field">
               <label>Preferred sectors</label>
-              <input
+              <select
                 value={individual.preferredSectors}
                 onChange={(e) => setIndividual((prev) => ({ ...prev, preferredSectors: e.target.value }))}
-              />
+              >
+                <option value="">{companySectors.length > 0 ? 'Select sector' : 'Loading sectors...'}</option>
+                {companySectors.map((sector) => (
+                  <option key={sector} value={sector}>{sector}</option>
+                ))}
+              </select>
             </div>
             <div className="field">
               <label>Skills</label>
@@ -847,8 +862,11 @@ export default function Register() {
         )}
 
         {step === 2 && (
-          <div className="notice">
-            <strong>Review</strong>
+          <div className="review-panel">
+            <div className="review-panel__header">
+              <p>Review</p>
+              <h3>Confirm your details</h3>
+            </div>
             {role === 'INDIVIDUAL' ? (
               <div className="review-grid">
                 <div className="review-row">
@@ -965,7 +983,7 @@ export default function Register() {
           </div>
         )}
 
-        <div className="stepper__actions">
+        <div className={`stepper__actions ${step === steps.length - 1 ? 'stepper__actions--review' : ''}`}>
           {step > 0 && (
             <button className="button button--ghost" type="button" onClick={previousStep}>
               Back
@@ -977,18 +995,20 @@ export default function Register() {
             </button>
           ) : (
             <>
-              <label className="confirm-row">
-                <input
-                  type="checkbox"
-                  checked={isConfirmed}
-                  onChange={(e) => {
-                    setIsConfirmed(e.target.checked);
-                    clearError('confirm');
-                  }}
-                />{' '}
-                I confirm the details are correct.
-              </label>
-              {fieldErrors.confirm && <span className="field__error">{fieldErrors.confirm}</span>}
+              <div className="review-confirm">
+                <label className="confirm-row">
+                  <input
+                    type="checkbox"
+                    checked={isConfirmed}
+                    onChange={(e) => {
+                      setIsConfirmed(e.target.checked);
+                      clearError('confirm');
+                    }}
+                  />{' '}
+                  I confirm the details are correct.
+                </label>
+                {fieldErrors.confirm && <span className="field__error">{fieldErrors.confirm}</span>}
+              </div>
               <button className="button" type="submit" disabled={isSubmitting || !isConfirmed}>
                 Confirm registration
               </button>
