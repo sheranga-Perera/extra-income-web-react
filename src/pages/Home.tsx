@@ -13,31 +13,34 @@ export default function Home() {
           <p className="home-hero__eyebrow">{t('homeEyebrow')}</p>
           <h1>{t('homeHeadline')}</h1>
           <p>{t('homeBody')}</p>
-          <div className="home-hero__actions">
-            <Link className="button" to="/jobs">{t('browseJobs')}</Link>
-            <Link className="button button--ghost" to="/hire">{t('findPeople')}</Link>
-          </div>
         </div>
 
-        <aside className="role-panel" aria-label={t('I am a')}>
-          <div>
-            <p className="role-picker__label">{t('I am a')}</p>
-            <h2>{user ? t('welcomeBack') : t('chooseAccountType')}</h2>
-          </div>
-          {!user && (
-            <div className="role-picker">
-              <Link className="role-picker__option" to="/register" state={{ role: 'INDIVIDUAL' }}>
-                <span>{t('individual')}</span>
-                <small>{t('findWork')}</small>
-              </Link>
-              <Link className="role-picker__option role-picker__option--accent" to="/register" state={{ role: 'COMPANY' }}>
-                <span>{t('company')}</span>
-                <small>{t('postJobs')}</small>
-              </Link>
-            </div>
-          )}
-          {user && (
-            <Link className="button" to="/profile">{t('profile')}</Link>
+        <aside className="role-panel" aria-label={user ? t('I am a') : 'New user?'}>
+          {user ? (
+            <>
+              <div>
+                <p className="role-picker__label">{t('I am a')}</p>
+                <h2>{t('welcomeBack')}</h2>
+              </div>
+              <Link className="button" to="/profile">{t('profile')}</Link>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="role-picker__label">New user?</p>
+                <h2>{t('chooseAccountType')}</h2>
+              </div>
+              <div className="role-picker">
+                <Link className="role-picker__option" to="/register" state={{ role: 'INDIVIDUAL' }}>
+                  <span>Job seeker</span>
+                  <small>{t('findWork')}</small>
+                </Link>
+                <Link className="role-picker__option role-picker__option--accent" to="/register" state={{ role: 'COMPANY' }}>
+                  <span>Job provider</span>
+                  <small>{t('postJobs')}</small>
+                </Link>
+              </div>
+            </>
           )}
         </aside>
       </section>

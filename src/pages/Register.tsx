@@ -11,13 +11,6 @@ type FieldErrors = Record<string, string>;
 
 const COUNTRY_CODE = '+94';
 
-const readFileAsDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result as string);
-  reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
-  reader.readAsDataURL(file);
-});
-
 const getRoleFromLocation = (state: unknown, search: string): RegisterRole => {
   const stateRole = (state as { role?: RegisterRole } | null)?.role;
   const queryRole = new URLSearchParams(search).get('role');
@@ -46,8 +39,6 @@ export default function Register() {
     email: '',
     phone: '',
     address: '',
-    nicFrontFile: null as File | null,
-    nicBackFile: null as File | null,
     hasDriversLicense: false,
     driversLicenseType: '',
     profession: '',
@@ -62,8 +53,7 @@ export default function Register() {
     contactEmail: '',
     contactPhone: '',
     bio: '',
-    sector: '',
-    legalDocs: [] as File[]
+    sector: ''
   });
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -124,7 +114,7 @@ export default function Register() {
     if (role === 'INDIVIDUAL') {
       return ['Personal details', 'Preferences & professional', 'Review'];
     }
-    return ['Company details', 'Legal documents', 'Review'];
+    return ['Company details', 'Review'];
   }, [role]);
 
   const clearError = (key: string) => {
@@ -179,12 +169,6 @@ export default function Register() {
     } else if (!isValidPhone(individual.phone.trim())) {
       errors.phone = 'Enter a valid phone number.';
     }
-    if (!individual.nicFrontFile) {
-      errors.nicFrontFile = 'Upload NIC front image.';
-    }
-    if (!individual.nicBackFile) {
-      errors.nicBackFile = 'Upload NIC back image.';
-    }
     if (individual.hasDriversLicense && !individual.driversLicenseType.trim()) {
       errors.driversLicenseType = 'Select a license type.';
     }
@@ -232,14 +216,6 @@ export default function Register() {
     return errors;
   };
 
-  const validateCompanyStep2 = (): FieldErrors => {
-    const errors: FieldErrors = {};
-    if (company.legalDocs.length === 0) {
-      errors.legalDocs = 'Upload at least one legal document.';
-    }
-    return errors;
-  };
-
   const currentStepValidations = (): FieldErrors => {
     if (step === 0) {
       const accountErrors = validateAccount();
@@ -249,7 +225,7 @@ export default function Register() {
       return { ...accountErrors, ...validateCompanyStep1() };
     }
     if (step === 1) {
-      return role === 'INDIVIDUAL' ? validateIndividualStep2() : validateCompanyStep2();
+      return role === 'INDIVIDUAL' ? validateIndividualStep2() : {};
     }
     return {};
   };
@@ -294,47 +270,28 @@ export default function Register() {
           ? (account.identifierType === 'EMAIL' ? individual.email : individual.phone)
           : (account.identifierType === 'EMAIL' ? company.contactEmail : company.contactPhone);
 
-      let nicFrontData: string | null = null;
-      let nicBackData: string | null = null;
-      let legalDocsData: string[] = [];
-
-      if (role === 'INDIVIDUAL') {
-        if (individual.nicFrontFile) {
-          nicFrontData = await readFileAsDataUrl(individual.nicFrontFile);
-        }
-        if (individual.nicBackFile) {
-          nicBackData = await readFileAsDataUrl(individual.nicBackFile);
-        }
-      }
-
-      if (role === 'COMPANY' && company.legalDocs.length > 0) {
-        legalDocsData = await Promise.all(company.legalDocs.map(readFileAsDataUrl));
-      }
-
       await register({
         username,
         password: account.password,
         confirmPassword: account.confirmPassword,
         role: role as Role,
         identifierType: account.identifierType,
-            ...(role === 'INDIVIDUAL'
-              ? {
-                  firstName: individual.firstName.trim(),
-                  lastName: individual.lastName.trim(),
-                  dob: individual.dob,
-                  gender: individual.gender,
-                  email: individual.email.trim(),
-                  phone: individual.phone.trim(),
-                  address: individual.address.trim(),
-                  nicFront: nicFrontData ?? '',
-                  nicBack: nicBackData ?? '',
-                  hasDriversLicense: individual.hasDriversLicense,
-                  driversLicenseType: individual.driversLicenseType.trim(),
-                  profession: individual.profession.trim(),
-                  preferredCategories: individual.preferredCategories.trim(),
-                  preferredSectors: individual.preferredSectors.trim(),
-                  skills: individual.skills.join(', ')
-                }
+        ...(role === 'INDIVIDUAL'
+          ? {
+              firstName: individual.firstName.trim(),
+              lastName: individual.lastName.trim(),
+              dob: individual.dob,
+              gender: individual.gender,
+              email: individual.email.trim(),
+              phone: individual.phone.trim(),
+              address: individual.address.trim(),
+              hasDriversLicense: individual.hasDriversLicense,
+              driversLicenseType: individual.driversLicenseType.trim(),
+              profession: individual.profession.trim(),
+              preferredCategories: individual.preferredCategories.trim(),
+              preferredSectors: individual.preferredSectors.trim(),
+              skills: individual.skills.join(', ')
+            }
           : {
               companyName: company.companyName.trim(),
               address: company.address.trim(),
@@ -342,8 +299,7 @@ export default function Register() {
               contactEmail: company.contactEmail.trim(),
               contactPhone: company.contactPhone.trim(),
               bio: company.bio.trim(),
-              sector: company.sector.trim(),
-              legalDocs: legalDocsData
+              sector: company.sector.trim()
             })
       });
       navigate('/profile');
@@ -492,32 +448,6 @@ export default function Register() {
                 value={individual.address}
                 onChange={(e) => setIndividual((prev) => ({ ...prev, address: e.target.value }))}
               />
-            </div>
-            <div className="field">
-              <label>NIC front</label>
-              <input
-                type="file"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  setIndividual((prev) => ({ ...prev, nicFrontFile: file }));
-                  clearError('nicFrontFile');
-                }}
-                className={fieldErrors.nicFrontFile ? 'input--error' : undefined}
-              />
-              {fieldErrors.nicFrontFile && <span className="field__error">{fieldErrors.nicFrontFile}</span>}
-            </div>
-            <div className="field">
-              <label>NIC back</label>
-              <input
-                type="file"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  setIndividual((prev) => ({ ...prev, nicBackFile: file }));
-                  clearError('nicBackFile');
-                }}
-                className={fieldErrors.nicBackFile ? 'input--error' : undefined}
-              />
-              {fieldErrors.nicBackFile && <span className="field__error">{fieldErrors.nicBackFile}</span>}
             </div>
             <div className="field">
               <label>
@@ -842,26 +772,7 @@ export default function Register() {
           </>
         )}
 
-        {step === 1 && role === 'COMPANY' && (
-          <>
-            <div className="field">
-              <label>Legal documents</label>
-              <input
-                type="file"
-                multiple
-                onChange={(e) => {
-                  const files = e.target.files ? Array.from(e.target.files) : [];
-                  setCompany((prev) => ({ ...prev, legalDocs: files }));
-                  clearError('legalDocs');
-                }}
-                className={fieldErrors.legalDocs ? 'input--error' : undefined}
-              />
-              {fieldErrors.legalDocs && <span className="field__error">{fieldErrors.legalDocs}</span>}
-            </div>
-          </>
-        )}
-
-        {step === 2 && (
+        {step === steps.length - 1 && (
           <div className="review-panel">
             <div className="review-panel__header">
               <p>Review</p>
@@ -896,14 +807,6 @@ export default function Register() {
                 <div className="review-row">
                   <span className="review-label">Address</span>
                   <span>{individual.address || '—'}</span>
-                </div>
-                <div className="review-row">
-                  <span className="review-label">NIC front</span>
-                  <span>{individual.nicFrontFile ? individual.nicFrontFile.name : 'Not uploaded'}</span>
-                </div>
-                <div className="review-row">
-                  <span className="review-label">NIC back</span>
-                  <span>{individual.nicBackFile ? individual.nicBackFile.name : 'Not uploaded'}</span>
                 </div>
                 <div className="review-row">
                   <span className="review-label">Driver’s license</span>
@@ -965,14 +868,6 @@ export default function Register() {
                 <div className="review-row">
                   <span className="review-label">Sector</span>
                   <span>{company.sector}</span>
-                </div>
-                <div className="review-row">
-                  <span className="review-label">Legal documents</span>
-                  <span>
-                    {company.legalDocs.length > 0
-                      ? company.legalDocs.map((file) => file.name).join(', ')
-                      : 'Not uploaded'}
-                  </span>
                 </div>
                 <div className="review-row">
                   <span className="review-label">Identifier</span>

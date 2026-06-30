@@ -11,6 +11,7 @@ export default function NavBar() {
       <Link to="/" className="navbar__brand">{t('appName')}</Link>
       <div className="navbar__links">
         <select
+          className="language-select"
           value={language}
           onChange={(event) => setLanguage(event.target.value as typeof language)}
         >
@@ -21,7 +22,6 @@ export default function NavBar() {
         {!user ? (
           <>
             <Link to="/login">{t('login')}</Link>
-            <Link to="/" className="button button--ghost">{t('register')}</Link>
           </>
         ) : (
           <>

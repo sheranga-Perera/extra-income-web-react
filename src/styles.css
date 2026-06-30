@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   color-scheme: light;
   font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -9,8 +11,15 @@
   box-sizing: border-box;
 }
 
+tinhtml {
+  width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 a {
@@ -43,16 +52,44 @@ a {
   display: flex;
   gap: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.language-select {
+  min-height: 2.4rem;
+  padding: 0.55rem 2rem 0.55rem 0.85rem;
+  border: 1px solid #0f172a;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.language-select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+.language-select option {
+  background: #fff;
+  color: #0f172a;
 }
 
 .button {
   border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.6rem 1.2rem;
   border-radius: 999px;
   background: #0f172a;
   color: #fff;
   cursor: pointer;
   font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .button:disabled {
@@ -67,15 +104,17 @@ a {
 }
 
 .container {
-  width: min(100%, 1100px);
+  width: 100%;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: clamp(1rem, 4vw, 2rem);
 }
 
 .home-page {
-  width: min(100%, 1120px);
+  width: 100%;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 3rem 2rem 2rem;
+  padding: clamp(2rem, 5vw, 3rem) clamp(1rem, 4vw, 2rem) 2rem;
 }
 
 .home-hero {
@@ -84,6 +123,20 @@ a {
   grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 2rem;
   align-items: center;
+}
+
+.home-hero--solo {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+  text-align: center;
+}
+
+.home-hero--solo .home-hero__content {
+  justify-items: center;
+}
+
+.home-hero--solo .home-hero__actions {
+  justify-content: center;
 }
 
 .home-hero__content {
@@ -230,9 +283,11 @@ a {
 .form {
   display: grid;
   gap: 1rem;
+  width: min(100%, 520px);
   max-width: 520px;
+  margin: 0 auto;
   background: rgba(255, 255, 255, 0.9);
-  padding: 2rem;
+  padding: clamp(1.25rem, 4vw, 2rem);
   border-radius: 1.5rem;
   border: 1px solid #e2e8f0;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
@@ -244,6 +299,7 @@ a {
 }
 
 .profile-page .form {
+  width: 100%;
   max-width: none;
 }
 
@@ -444,10 +500,18 @@ a {
 .field input,
 .field select,
 .field textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.6rem 0.75rem;
   border-radius: 0.75rem;
   border: 1px solid #cbd5f5;
   font-size: 1rem;
+}
+
+.field input[type="checkbox"],
+.field input[type="radio"] {
+  width: auto;
 }
 
 .password-input {
@@ -480,27 +544,29 @@ a {
 }
 
 .phone-input {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
   gap: 0.5rem;
   align-items: center;
 }
 
 .phone-input select {
-  min-width: 150px;
+  min-width: 0;
 }
 
 .phone-input input {
-  flex: 1;
+  min-width: 0;
 }
 
 .skill-input {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
   align-items: center;
 }
 
 .skill-input input {
-  flex: 1;
+  min-width: 0;
 }
 
 .document-input {
@@ -591,7 +657,7 @@ a {
 
 .stepper__actions--review {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
 }
 
@@ -1018,6 +1084,12 @@ a {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+    padding: 1rem;
+  }
+
+  .navbar__links {
+    width: 100%;
+    gap: 0.75rem;
   }
 
   .profile-card__hero {
@@ -1032,11 +1104,23 @@ a {
   .home-hero {
     min-height: auto;
     grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
 
   .home-hero h1 {
     max-width: none;
-    font-size: 2.75rem;
+    font-size: 2.5rem;
+  }
+
+  .home-hero__actions,
+  .stepper__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero__actions .button,
+  .stepper__actions .button {
+    width: 100%;
   }
 
   .role-picker {
@@ -1058,6 +1142,12 @@ a {
   }
 
   .document-input {
+    grid-template-columns: 1fr;
+  }
+
+  .document-input--actions,
+  .phone-input,
+  .skill-input {
     grid-template-columns: 1fr;
   }
 
