@@ -42,6 +42,7 @@ export interface ActiveAdResponse {
   mediaUrl: string | null;
   mediaContent?: string | null;
   cta: string | null;
+  ctaUrl?: string | null;
   viewsPerDay: number | null;
   minutesPerDay: number | null;
   startDate: string | null;
@@ -61,6 +62,7 @@ export interface AdRequestPayload {
   mediaContent?: string;
   mediaNotes?: string;
   cta?: string;
+  ctaUrl?: string;
   viewsPerDay?: number;
   minutesPerDay?: number;
   startDate?: string;

@@ -879,15 +879,17 @@ export default function Register() {
         )}
 
         <div className={`stepper__actions ${step === steps.length - 1 ? 'stepper__actions--review' : ''}`}>
-          {step > 0 && (
-            <button className="button button--ghost" type="button" onClick={previousStep}>
-              Back
-            </button>
-          )}
           {step < steps.length - 1 ? (
-            <button className="button" type="button" onClick={nextStep}>
-              Next
-            </button>
+            <>
+              {step > 0 && (
+                <button className="button button--ghost" type="button" onClick={previousStep}>
+                  Back
+                </button>
+              )}
+              <button className="button" type="button" onClick={nextStep}>
+                Next
+              </button>
+            </>
           ) : (
             <>
               <div className="review-confirm">
@@ -904,9 +906,14 @@ export default function Register() {
                 </label>
                 {fieldErrors.confirm && <span className="field__error">{fieldErrors.confirm}</span>}
               </div>
-              <button className="button" type="submit" disabled={isSubmitting || !isConfirmed}>
-                Confirm registration
-              </button>
+              <div className="stepper__buttons">
+                <button className="button button--ghost" type="button" onClick={previousStep}>
+                  Back
+                </button>
+                <button className="button" type="submit" disabled={isSubmitting || !isConfirmed}>
+                  Confirm registration
+                </button>
+              </div>
             </>
           )}
         </div>

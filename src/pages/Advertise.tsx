@@ -24,6 +24,7 @@ interface AdFormState {
   mediaUrl: string;
   mediaNotes: string;
   cta: string;
+  ctaUrl: string;
   viewsPerDay: string;
   minutesPerDay: string;
   startDate: string;
@@ -42,6 +43,7 @@ const initialForm: AdFormState = {
   mediaUrl: '',
   mediaNotes: '',
   cta: '',
+  ctaUrl: '',
   viewsPerDay: '',
   minutesPerDay: '',
   startDate: '',
@@ -64,6 +66,7 @@ const buildMessage = (form: AdFormState, requestId?: string, mediaFileName?: str
     mediaFileName ? `Media file uploaded: ${mediaFileName}` : null,
     form.mediaNotes ? `Media notes: ${form.mediaNotes}` : null,
     form.cta ? `CTA: ${form.cta}` : null,
+    form.ctaUrl ? `CTA URL: ${form.ctaUrl}` : null,
     form.viewsPerDay ? `Views per day: ${form.viewsPerDay}` : null,
     form.minutesPerDay ? `Minutes per day: ${form.minutesPerDay}` : null,
     form.startDate ? `Start date: ${form.startDate}` : null,
@@ -84,6 +87,7 @@ export default function Advertise() {
   const [submittedForm, setSubmittedForm] = useState<AdFormState | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [submittedMediaFileName, setSubmittedMediaFileName] = useState<string | null>(null);
+  const [formResetKey, setFormResetKey] = useState(0);
 
   const canAdvertise = user?.role === 'COMPANY' || user?.role === 'ADMIN';
 
@@ -97,17 +101,26 @@ export default function Advertise() {
     setSuccess(null);
     setRequestInfo(null);
 
+    const formData = new FormData(event.currentTarget as HTMLFormElement);
+    const startDate = (formData.get('startDate')?.toString() || form.startDate).trim();
+    const endDate = (formData.get('endDate')?.toString() || form.endDate).trim();
+    const submittedValues = {
+      ...form,
+      startDate,
+      endDate
+    };
+
     if (!canAdvertise) {
       setError('Only job provider accounts can submit advertisements.');
       return;
     }
 
-    if (!form.companyName.trim() || !form.contactPerson.trim() || !form.contactEmail.trim()) {
+    if (!submittedValues.companyName.trim() || !submittedValues.contactPerson.trim() || !submittedValues.contactEmail.trim()) {
       setError('Company name, contact person, and contact email are required.');
       return;
     }
 
-    if (!form.adTitle.trim() || !form.adDescription.trim()) {
+    if (!submittedValues.adTitle.trim() || !submittedValues.adDescription.trim()) {
       setError('Ad title and description are required.');
       return;
     }
@@ -117,43 +130,45 @@ export default function Advertise() {
       return;
     }
 
-    if (!form.startDate.trim() || !form.endDate.trim()) {
+    if (!submittedValues.startDate || !submittedValues.endDate) {
       setError('Start date and end date are required.');
       return;
     }
 
     setSubmitting(true);
-    const viewsPerDay = form.viewsPerDay.trim() ? Number(form.viewsPerDay) : undefined;
-    const minutesPerDay = form.minutesPerDay.trim() ? Number(form.minutesPerDay) : undefined;
+    const viewsPerDay = submittedValues.viewsPerDay.trim() ? Number(submittedValues.viewsPerDay) : undefined;
+    const minutesPerDay = submittedValues.minutesPerDay.trim() ? Number(submittedValues.minutesPerDay) : undefined;
 
     try {
       const mediaContent = mediaFile ? await readFileAsDataUrl(mediaFile) : undefined;
       const payload = {
-        companyName: form.companyName.trim(),
-        contactPerson: form.contactPerson.trim(),
-        contactEmail: form.contactEmail.trim(),
-        contactPhone: form.contactPhone.trim() || undefined,
-        adTitle: form.adTitle.trim(),
-        adDescription: form.adDescription.trim(),
-        adType: form.adType,
-        adGoal: form.adGoal.trim() || undefined,
-        mediaUrl: form.mediaUrl.trim() || undefined,
+        companyName: submittedValues.companyName.trim(),
+        contactPerson: submittedValues.contactPerson.trim(),
+        contactEmail: submittedValues.contactEmail.trim(),
+        contactPhone: submittedValues.contactPhone.trim() || undefined,
+        adTitle: submittedValues.adTitle.trim(),
+        adDescription: submittedValues.adDescription.trim(),
+        adType: submittedValues.adType,
+        adGoal: submittedValues.adGoal.trim() || undefined,
+        mediaUrl: submittedValues.mediaUrl.trim() || undefined,
         mediaContent,
-        mediaNotes: form.mediaNotes.trim() || undefined,
-        cta: form.cta.trim() || undefined,
+        mediaNotes: submittedValues.mediaNotes.trim() || undefined,
+        cta: submittedValues.cta.trim() || undefined,
+        ctaUrl: submittedValues.ctaUrl.trim() || undefined,
         viewsPerDay: Number.isFinite(viewsPerDay) ? viewsPerDay : undefined,
         minutesPerDay: Number.isFinite(minutesPerDay) ? minutesPerDay : undefined,
-        startDate: form.startDate,
-        endDate: form.endDate
+        startDate: submittedValues.startDate,
+        endDate: submittedValues.endDate
       };
 
       const response = await createAdRequest(payload);
-      setSubmittedForm(form);
+      setSubmittedForm(submittedValues);
       setSubmittedMediaFileName(mediaFile?.name ?? null);
       setRequestInfo(response);
       setSuccess('Ad request submitted. An agent will confirm pricing and payment via WhatsApp.');
       setForm(initialForm);
       setMediaFile(null);
+      setFormResetKey((current) => current + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit ad request.');
     } finally {
@@ -198,7 +213,7 @@ export default function Advertise() {
         <div className="jobs-summary">WhatsApp agent: +94 77 000 0000</div>
       </div>
 
-      <form className="panel jobs-search" onSubmit={handleSubmit}>
+      <form className="panel jobs-search" onSubmit={handleSubmit} autoComplete="off">
         {error && <div className="notice notice--error">{error}</div>}
         {success && <div className="notice">{success}</div>}
         <div className="jobs-search__fields">
@@ -285,6 +300,16 @@ export default function Advertise() {
             />
           </div>
           <div className="field">
+            <label htmlFor="adCtaUrl">Call to action link</label>
+            <input
+              id="adCtaUrl"
+              type="url"
+              value={form.ctaUrl}
+              onChange={(event) => setForm((prev) => ({ ...prev, ctaUrl: event.target.value }))}
+              placeholder="https://example.com/apply"
+            />
+          </div>
+          <div className="field">
             <label htmlFor="adMediaUrl">Media URL (optional)</label>
             <input
               id="adMediaUrl"
@@ -337,8 +362,11 @@ export default function Advertise() {
           <div className="field">
             <label htmlFor="adStart">Start date</label>
             <input
+              key={`start-${formResetKey}`}
               id="adStart"
+              name="startDate"
               type="date"
+              required
               value={form.startDate}
               onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
             />
@@ -346,8 +374,11 @@ export default function Advertise() {
           <div className="field">
             <label htmlFor="adEnd">End date</label>
             <input
+              key={`end-${formResetKey}`}
               id="adEnd"
+              name="endDate"
               type="date"
+              required
               value={form.endDate}
               onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
             />

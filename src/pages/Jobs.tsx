@@ -121,6 +121,53 @@ const parseOptionalNumber = (value: string): number | undefined => {
   return Number.isFinite(numeric) ? numeric : undefined;
 };
 
+const normalizeMediaUrl = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/^(data:|blob:|https?:\/\/|\/)/i.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  return `https://${trimmed}`;
+};
+
+const getAdMediaSource = (ad: ActiveAdResponse) => {
+  const uploadedMedia = ad.mediaContent?.trim();
+  if (uploadedMedia) {
+    return uploadedMedia;
+  }
+  return normalizeMediaUrl(ad.mediaUrl) || '';
+};
+
+const isVideoAd = (ad: ActiveAdResponse) => {
+  const source = getAdMediaSource(ad).toLowerCase();
+  if (source.startsWith('data:image/')) {
+    return false;
+  }
+  if (source.startsWith('data:video/')) {
+    return true;
+  }
+  if (/\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|#|$)/i.test(source)) {
+    return false;
+  }
+  if (/\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(source)) {
+    return true;
+  }
+  return ad.adType.toLowerCase().includes('video');
+};
+
+const normalizeExternalUrl = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+
 export default function Jobs() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<JobPostResponse[]>([]);
@@ -831,23 +878,43 @@ export default function Jobs() {
                 )}
                 {ads.map((ad) => (
                   <article key={ad.id} className="ad-card">
-                    {(ad.mediaContent || ad.mediaUrl) && (
+                    {getAdMediaSource(ad) && (
                       <div className="ad-media">
-                        {ad.adType.toLowerCase() === 'video' ? (
-                          <video controls preload="metadata" src={ad.mediaContent ?? ad.mediaUrl ?? ''} />
+                        {isVideoAd(ad) ? (
+                          <video
+                            controls
+                            preload="metadata"
+                            src={getAdMediaSource(ad)}
+                            onError={(event) => {
+                              event.currentTarget.closest('.ad-media')?.classList.add('ad-media--empty');
+                            }}
+                          />
                         ) : (
-                          <img src={ad.mediaContent ?? ad.mediaUrl ?? ''} alt={ad.adTitle} />
+                          <img
+                            src={getAdMediaSource(ad)}
+                            alt={ad.adTitle}
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.closest('.ad-media')?.classList.add('ad-media--empty');
+                            }}
+                          />
                         )}
+                        <span className="ad-media__fallback">Media unavailable</span>
                       </div>
                     )}
                     <div className="ad-body">
                       <span className="ad-client">{ad.companyName}</span>
                       <h4>{ad.adTitle}</h4>
                       <p>{ad.adDescription}</p>
-                      {ad.cta && (
-                        <button className="button button--ghost" type="button">
+                      {ad.cta && normalizeExternalUrl(ad.ctaUrl) && (
+                        <a
+                          className="button button--ghost"
+                          href={normalizeExternalUrl(ad.ctaUrl) ?? undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           {ad.cta}
-                        </button>
+                        </a>
                       )}
                     </div>
                   </article>
