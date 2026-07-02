@@ -4,6 +4,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import Jobs from './pages/Jobs';
+import Hire from './pages/Hire';
+import Advertise from './pages/Advertise';
 
 const router = createBrowserRouter(
   [
@@ -46,11 +49,40 @@ const router = createBrowserRouter(
           <footer className="footer">Extra Income V1 • Sri Lanka</footer>
         </div>
       )
+    },
+    {
+      path: '/jobs',
+      element: (
+        <div className="app-shell">
+          <NavBar />
+          <Jobs />
+          <footer className="footer">Extra Income V1 • Sri Lanka</footer>
+        </div>
+      )
+    },
+    {
+      path: '/hire',
+      element: (
+        <div className="app-shell">
+          <NavBar />
+          <Hire />
+          <footer className="footer">Extra Income V1 • Sri Lanka</footer>
+        </div>
+      )
+    },
+    {
+      path: '/advertise',
+      element: (
+        <div className="app-shell">
+          <NavBar />
+          <Advertise />
+          <footer className="footer">Extra Income V1 • Sri Lanka</footer>
+        </div>
+      )
     }
   ],
   {
     future: {
-      v7_startTransition: true,
       v7_relativeSplatPath: true
     }
   }

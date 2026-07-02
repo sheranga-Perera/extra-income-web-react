@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { fetchCurrentUser, loginUser, registerUser } from '../api/auth';
+import { fetchCurrentUser, loginUser, registerUser, type RegisterPayload } from '../api/auth';
 import { setAuthToken } from '../api/http';
 
 export type Role = 'INDIVIDUAL' | 'COMPANY' | 'ADMIN';
@@ -16,12 +16,7 @@ interface AuthContextValue {
   user: UserSummary | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (payload: {
-    username: string;
-    password: string;
-    role: Role;
-    identifierType: IdentifierType;
-  }) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   refresh: () => Promise<void>;
   logout: () => void;
 }
@@ -31,7 +26,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const STORAGE_KEY = 'auth_token';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [token, setToken] = useState<string | null>(() => {
+    const storedToken = localStorage.getItem(STORAGE_KEY);
+    setAuthToken(storedToken);
+    return storedToken;
+  });
   const [user, setUser] = useState<UserSummary | null>(null);
 
   const refresh = useCallback(async () => {
@@ -54,10 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh().catch(() => setUser(null));
   }, [refresh]);
 
-  useEffect(() => {
-    setAuthToken(token);
-  }, [token]);
-
   const login = useCallback(async (username: string, password: string) => {
     const newToken = await loginUser(username, password);
     localStorage.setItem(STORAGE_KEY, newToken);
@@ -65,12 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthToken(newToken);
   }, []);
 
-  const register = useCallback(async (payload: {
-    username: string;
-    password: string;
-    role: Role;
-    identifierType: IdentifierType;
-  }) => {
+  const register = useCallback(async (payload: RegisterPayload) => {
     const newToken = await registerUser(payload);
     localStorage.setItem(STORAGE_KEY, newToken);
     setToken(newToken);
